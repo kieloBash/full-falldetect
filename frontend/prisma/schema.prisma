@@ -1,0 +1,333 @@
+// FallDetect — database schema
+//
+// Backs both implemented screens (Auth, Live Monitor) plus the Incidents
+// domain that Live Monitor's alerts actually belong to (see
+// `project/FallDetect Incidents - Handoff.dc.html`'s schema/API sections —
+// this is that spec turned into real tables). Analytics needs no tables of
+// its own; it's aggregate queries over Incident. Settings' sensor
+// management / notification-escalation rules aren't modeled — that screen
+// was never built.
+//
+// Key modeling decision: a room's live UI state (idle / active / acknowledged
+// / resolved / false alarm) is NOT a stored column. It's derived from
+// whether the room has an open Incident:
+//   - no OPEN incident (see Incident.state below)              -> idle / all-clear
+//   - one Incident with state ACTIVE                           -> active
+//   - one Incident with state ACKNOWLEDGED                     -> acknowledged
+// RESOLVED and FALSE_ALARM incidents stay in the table permanently for the
+// audit trail and analytics — the UI just visually fades the tile back to
+// idle a few seconds after resolution client-side. `@@unique([roomId, state])`
+// isn't used because state changes over time, not concurrency; enforce "one
+// open incident per room" in application code (or a partial unique index —
+// see the comment on Incident below).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  NURSE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SensorStatus {
+  ONLINE
+  DEGRADED
+  OFFLINE
+}
+
+/// Lifecycle of a single detected fall. ACTIVE/ACKNOWLEDGED are "open";
+/// RESOLVED/FALSE_ALARM are terminal and permanent.
+enum IncidentState {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  FALSE_ALARM
+}
+
+/// Mirrors FALSE_ALARM_REASONS in lib/live-monitor/constants.ts. Modeled as
+/// an enum because the current UI hardcodes this list; if Settings' "false-
+/// alarm reason presets" (per-facility customizable reasons) ever ships,
+/// swap this for a FalseAlarmReasonPreset table and an optional FK instead.
+enum FalseAlarmReason {
+  RESIDENT_SAT_DOWN
+  PET_OR_OBJECT
+  SENSOR_GLITCH
+  OTHER
+}
+
+enum InjurySeverity {
+  NONE
+  MINOR
+  MODERATE
+  SEVERE
+  HOSPITALIZED
+}
+
+/// Facility-wide feed shown in the Live Monitor inspector's "Recent
+/// activity" list. Incident-related entries duplicate what's derivable from
+/// Incident rows, kept as human-readable log lines for a fast, single-query
+/// feed instead of re-deriving sentences from state transitions on read.
+enum ActivityType {
+  SHIFT_STARTED
+  SENSOR_OFFLINE
+  SENSOR_DEGRADED
+  SENSOR_RECONNECTED
+  INCIDENT_DETECTED
+  INCIDENT_ACKNOWLEDGED
+  INCIDENT_RESOLVED
+  INCIDENT_FALSE_ALARM
+}
+
+// ─── Facility / org structure ──────────────────────────────────────────
+
+model Facility {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("America/New_York")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  floors    Floor[]
+  users     User[]
+  residents Resident[]
+  activity  ActivityLogEntry[]
+
+  @@map("facilities")
+}
+
+model Floor {
+  id         String   @id @default(cuid())
+  facilityId String
+  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  /// e.g. "2", "3" — matches FloorId in lib/live-monitor/types.ts
+  label      String
+  createdAt  DateTime @default(now())
+
+  rooms Room[]
+
+  @@unique([facilityId, label])
+  @@map("floors")
+}
+
+// ─── People ─────────────────────────────────────────────────────────────
+
+/// Staff account. Backs both Auth screens (login/register) and the "DO"
+/// avatar / responder fields on Live Monitor.
+model User {
+  id              String    @id @default(cuid())
+  facilityId      String
+  facility        Facility  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  firstName       String
+  lastName        String
+  email           String    @unique
+  passwordHash    String
+  role            UserRole  @default(NURSE)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  passwordResetTokens PasswordResetToken[]
+  pinnedRooms         PinnedRoom[]
+  savedViews          SavedView[]
+  respondedIncidents  Incident[]           @relation("IncidentResponder")
+  activityEntries     ActivityLogEntry[]   @relation("ActivityActor")
+
+  @@map("users")
+}
+
+/// Backs the (currently no-op) "Forgot password?" link on the login form.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// One row per monitored resident. `room` is the current 1:1 assignment;
+/// no room-transfer history is modeled since the UI doesn't support moves.
+model Resident {
+  id          String    @id @default(cuid())
+  facilityId  String
+  facility    Facility  @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  firstName   String
+  lastName    String
+  risk        RiskLevel @default(LOW)
+  dateOfBirth DateTime?
+  admittedAt  DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  room      Room?
+  incidents Incident[]
+
+  @@map("residents")
+}
+
+// ─── Rooms & sensors ────────────────────────────────────────────────────
+
+model Room {
+  id         String    @id @default(cuid())
+  floorId    String
+  floor      Floor     @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  /// e.g. "201" — matches Room.label in lib/live-monitor/types.ts
+  label      String
+  /// e.g. "Zone A" — matches Room.zone
+  zone       String
+  residentId String?   @unique
+  resident   Resident? @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  sensor    Sensor?
+  incidents Incident[]
+  pinnedBy  PinnedRoom[]
+  activity  ActivityLogEntry[]
+
+  @@unique([floorId, label])
+  @@map("rooms")
+}
+
+/// The ceiling-mounted, camera-free fall sensor — and, per the CCTV pivot
+/// in the design chats, also the in-room camera feed source (CAM-{room.id}
+/// in the UI is this row's id).
+model Sensor {
+  id          String       @id @default(cuid())
+  roomId      String       @unique
+  room        Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  status      SensorStatus @default(ONLINE)
+  /// Camera/device identifier shown in the UI, e.g. "CAM-205".
+  deviceLabel String?
+  lastSeenAt  DateTime     @default(now())
+  installedAt DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("sensors")
+}
+
+// ─── Incidents ──────────────────────────────────────────────────────────
+
+/// One detected fall event, from detection through resolution or
+/// false-alarm dismissal. This is the audit record the product's whole
+/// value proposition depends on ("auditable incident records").
+///
+/// Only one ACTIVE/ACKNOWLEDGED (open) incident should exist per room at a
+/// time — enforce in application code, or with a Postgres partial unique
+/// index the migration SQL adds by hand, e.g.:
+///   CREATE UNIQUE INDEX incidents_one_open_per_room
+///     ON incidents (room_id) WHERE state IN ('ACTIVE', 'ACKNOWLEDGED');
+model Incident {
+  id         String        @id @default(cuid())
+  residentId String
+  resident   Resident      @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  roomId     String
+  room       Room          @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  state      IncidentState @default(ACTIVE)
+
+  /// AI detection confidence, 0–100. Shown as "98%" / "Nominal" in the UI.
+  confidence Float @default(0)
+
+  detectedAt      DateTime  @default(now())
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  /// Denormalized (resolvedAt - detectedAt) in seconds, set on resolution
+  /// so response-time analytics don't need to compute it per-row.
+  durationSeconds Int?
+
+  responderId String?
+  responder   User?   @relation("IncidentResponder", fields: [responderId], references: [id], onDelete: SetNull)
+
+  injurySeverity   InjurySeverity?
+  outcomeNotes     String?
+  falseAlarmReason FalseAlarmReason?
+  /// Free-text detail when falseAlarmReason is OTHER.
+  falseAlarmNote   String?
+
+  /// Nurse's care-notes / annotate action from the incident detail flow.
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activity ActivityLogEntry[]
+
+  @@index([roomId, state])
+  @@index([residentId, createdAt])
+  @@map("incidents")
+}
+
+// ─── Activity feed ──────────────────────────────────────────────────────
+
+/// Facility-wide "Recent activity" feed in the Live Monitor inspector.
+/// `incidentId`/`roomId`/`actorId` are nullable because entries like
+/// SHIFT_STARTED or SENSOR_OFFLINE aren't tied to an incident or a person.
+model ActivityLogEntry {
+  id         String       @id @default(cuid())
+  facilityId String
+  facility   Facility     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  type       ActivityType
+  /// Rendered directly, e.g. "Fall detected in Room 214".
+  message    String
+
+  incidentId String?
+  incident   Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  roomId     String?
+  room       Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  actorId    String?
+  actor      User?     @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([facilityId, createdAt])
+  @@map("activity_log_entries")
+}
+
+// ─── Per-nurse preferences ──────────────────────────────────────────────
+
+/// Backs the "Pin to camera wall" / sidebar pinned-residents list.
+model PinnedRoom {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roomId])
+  @@map("pinned_rooms")
+}
+
+/// Backs the sidebar's "Saved views" (e.g. "Floor 2 — High risk"). Not yet
+/// wired to any built UI — the filters a view applies are left as JSON so
+/// the shape can evolve without a migration.
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  filters   Json
+  createdAt DateTime @default(now())
+
+  @@map("saved_views")
+}

@@ -1,0 +1,110 @@
+erDiagram
+  FACILITY ||--o{ FLOOR : has
+  FACILITY ||--o{ USER : employs
+  FACILITY ||--o{ RESIDENT : houses
+  FACILITY ||--o{ ACTIVITY_LOG_ENTRY : logs
+  FLOOR ||--o{ ROOM : contains
+  USER ||--o{ PASSWORD_RESET_TOKEN : owns
+  USER ||--o{ PINNED_ROOM : pins
+  USER ||--o{ SAVED_VIEW : saves
+  USER ||--o{ INCIDENT : responds_to
+  USER ||--o{ ACTIVITY_LOG_ENTRY : acts_in
+  RESIDENT ||--o| ROOM : assigned_to
+  RESIDENT ||--o{ INCIDENT : involved_in
+  ROOM ||--o| SENSOR : monitored_by
+  ROOM ||--o{ INCIDENT : location_of
+  ROOM ||--o{ PINNED_ROOM : pinned_as
+  ROOM ||--o{ ACTIVITY_LOG_ENTRY : referenced_in
+  INCIDENT ||--o{ ACTIVITY_LOG_ENTRY : generates
+  FACILITY {
+    string id PK
+    string name
+    string timezone
+    datetime createdAt
+    datetime updatedAt
+  }
+  FLOOR {
+    string id PK
+    string facilityId FK
+    string label UK
+    datetime createdAt
+  }
+  USER {
+    string id PK
+    string facilityId FK
+    string email UK
+    string passwordHash
+    UserRole role
+    datetime emailVerifiedAt
+    datetime lastLoginAt
+  }
+  PASSWORD_RESET_TOKEN {
+    string id PK
+    string userId FK
+    string token UK
+    datetime expiresAt
+    datetime usedAt
+  }
+  RESIDENT {
+    string id PK
+    string facilityId FK
+    string firstName
+    string lastName
+    RiskLevel risk
+    datetime dateOfBirth
+    datetime admittedAt
+  }
+  ROOM {
+    string id PK
+    string floorId FK
+    string label UK
+    string zone
+    string residentId FK
+    datetime createdAt
+  }
+  SENSOR {
+    string id PK
+    string roomId FK
+    SensorStatus status
+    string deviceLabel
+    datetime lastSeenAt
+    datetime installedAt
+  }
+  INCIDENT {
+    string id PK
+    string residentId FK
+    string roomId FK
+    IncidentState state
+    float confidence
+    datetime detectedAt
+    datetime acknowledgedAt
+    datetime resolvedAt
+    int durationSeconds
+    string responderId FK
+    InjurySeverity injurySeverity
+    FalseAlarmReason falseAlarmReason
+    string notes
+  }
+  ACTIVITY_LOG_ENTRY {
+    string id PK
+    string facilityId FK
+    ActivityType type
+    string message
+    string incidentId FK
+    string roomId FK
+    string actorId FK
+    datetime createdAt
+  }
+  PINNED_ROOM {
+    string id PK
+    string userId FK
+    string roomId FK
+    datetime createdAt
+  }
+  SAVED_VIEW {
+    string id PK
+    string userId FK
+    string name
+    json filters
+    datetime createdAt
+  }
