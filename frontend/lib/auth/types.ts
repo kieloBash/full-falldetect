@@ -5,7 +5,17 @@ export type AuthMode = "login" | "register" | "done";
 /** Which flow the success screen is confirming, so its copy can differ. */
 export type DoneKind = "login" | "register";
 
-export type FacilityId = "sunrise" | "oakwood";
+/**
+ * A facility id is now a `Facility.id` (cuid) fetched from the DB via
+ * GET /api/facilities — no longer a hardcoded union. `FacilityOption` is the
+ * shape the register form's <select> consumes (see `useFacilities`).
+ */
+export type FacilityId = string;
+
+export interface FacilityOption {
+  value: FacilityId;
+  label: string;
+}
 
 export interface LoginFormValues {
   email: string;

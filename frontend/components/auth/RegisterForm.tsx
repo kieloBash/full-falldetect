@@ -1,4 +1,4 @@
-import { COPY, FACILITY_OPTIONS } from "@/lib/auth/constants";
+import { COPY } from "@/lib/auth/constants";
 import type { UseAuthFormReturn } from "@/lib/auth/useAuthForm";
 import { Checkbox } from "./fields/Checkbox";
 import { PasswordField } from "./fields/PasswordField";
@@ -14,6 +14,8 @@ export interface RegisterFormProps {
 
 /** The "Create account" tab's content: staff details, facility, password with strength meter, and terms agreement. */
 export function RegisterForm({ form, onSwitchToLogin }: RegisterFormProps) {
+  const facilitiesReady = !form.facilitiesLoading && form.facilityOptions.length > 0;
+
   return (
     <div className="mt-7 flex flex-1 flex-col">
       <h1 className="m-0 text-[22px] font-semibold tracking-tight text-slate-900">{COPY.registerTitle}</h1>
@@ -33,7 +35,26 @@ export function RegisterForm({ form, onSwitchToLogin }: RegisterFormProps) {
 
         <TextField id="reg-email" label="Work email" type="email" value={form.email} onChange={form.onEmailChange} placeholder="you@sunrisesenior.com" autoComplete="email" />
 
-        <SelectField id="reg-facility" label="Facility" value={form.facility} options={FACILITY_OPTIONS} onChange={form.onFacilityChange} />
+        {/* Facilities are fetched from the DB (useFacilities). Until they arrive,
+            show a plain-text placeholder in place of the select so the field's
+            typing stays untouched. Once loaded, the hook has already defaulted
+            `form.facility` to the first option. */}
+        {facilitiesReady ? (
+          <SelectField
+            id="reg-facility"
+            label="Facility"
+            value={form.facility}
+            options={form.facilityOptions}
+            onChange={form.onFacilityChange}
+          />
+        ) : (
+          <div>
+            <label className="mb-[6px] block text-[12.5px] font-semibold text-slate-700">Facility</label>
+            <div className="flex h-11 w-full items-center rounded-[9px] border border-slate-200 bg-slate-50 px-[14px] text-sm text-slate-400">
+              {COPY.registerFacilitiesLoading}
+            </div>
+          </div>
+        )}
 
         <div>
           <PasswordField

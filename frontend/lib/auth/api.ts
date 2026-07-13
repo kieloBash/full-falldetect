@@ -1,31 +1,43 @@
-import type { LoginFormValues, RegisterFormValues } from "./types";
+import type { FacilityOption, LoginFormValues, RegisterFormValues } from "./types";
 
 /**
- * Auth API layer. Mirrors `lib/live-monitor/api.ts`'s shape: these resolve
- * mock data today (with a delay matching the original prototype's demo
- * spinner timing), and each has a `TODO(api)` comment with the exact axios
- * call to make through `@/lib/api/client` once a backend exists.
+ * Auth API layer. Same shape as before, but the mock delays are gone: each
+ * call now hits a real route handler under `app/api/auth/*` that talks to
+ * Prisma. Session state is a JWT set as an httpOnly cookie by the route —
+ * the client never sees or stores the token, so these still just return the
+ * lightweight `AuthResult`.
  */
-
-const MOCK_LATENCY_MS = 900;
-
-function mockDelay<T>(value: T, ms: number = MOCK_LATENCY_MS): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
 
 export interface AuthResult {
   userId: string;
   email: string;
 }
 
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error ?? "Something went wrong. Please try again.");
+  return data as T;
+}
+
 export async function login(values: LoginFormValues): Promise<AuthResult> {
-  // TODO(api): const { data } = await apiClient.post<AuthResult>("/auth/login", values);
-  //            return data;
-  return mockDelay({ userId: "mock-user-id", email: values.email });
+  return postJson<AuthResult>("/api/auth/login", values);
 }
 
 export async function register(values: RegisterFormValues): Promise<AuthResult> {
-  // TODO(api): const { data } = await apiClient.post<AuthResult>("/auth/register", values);
-  //            return data;
-  return mockDelay({ userId: "mock-user-id", email: values.email });
+  return postJson<AuthResult>("/api/auth/register", values);
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/api/auth/logout", { method: "POST" });
+}
+
+export async function fetchFacilities(): Promise<FacilityOption[]> {
+  const res = await fetch("/api/facilities");
+  if (!res.ok) throw new Error("Could not load facilities.");
+  return (await res.json()) as FacilityOption[];
 }

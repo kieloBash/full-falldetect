@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { COPY } from "./constants";
-import { useLoginMutation, useRegisterMutation } from "./queries";
+import { useFacilities, useLoginMutation, useRegisterMutation } from "./queries";
 import type { AuthMode, DoneKind, FacilityId } from "./types";
 import { passwordStrengthScore } from "./utils";
 
@@ -18,10 +18,9 @@ export interface UseAuthFormOptions {
 
 /**
  * Owns all state for the Auth screen (login, register, and the success
- * state), mirroring `useLiveMonitor`'s shape: local form state, submission
- * going through `useMutation` hooks (currently mock-backed — see
- * `lib/auth/api.ts`), and a single hook consumed by the top-level
- * `<AuthScreen />` component.
+ * state). Structure is unchanged from the mock version — the only additions
+ * are: mutation errors now surface real server messages, and the facility
+ * <select> is driven by `useFacilities()` instead of a hardcoded list.
  */
 export function useAuthForm(options: UseAuthFormOptions = {}) {
   const { onAuthenticated } = options;
@@ -38,13 +37,21 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [regEmail, setRegEmail] = useState("");
-  const [facility, setFacility] = useState<FacilityId>("sunrise");
+  const [facility, setFacility] = useState<FacilityId>("");
   const [regPassword, setRegPassword] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [regError, setRegError] = useState("");
 
+  const facilitiesQuery = useFacilities();
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
+
+  // Default the facility select to the first fetched option once loaded.
+  useEffect(() => {
+    if (!facility && facilitiesQuery.data?.length) {
+      setFacility(facilitiesQuery.data[0].value);
+    }
+  }, [facility, facilitiesQuery.data]);
 
   const showLogin = useCallback(() => setMode("login"), []);
   const showRegister = useCallback(() => setMode("register"), []);
@@ -63,13 +70,14 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
           setDoneKind("login");
           setMode("done");
         },
+        onError: (e) => setLoginError(e instanceof Error ? e.message : "Sign in failed."),
       }
     );
   }, [loginEmail, loginPassword, rememberMe, loginMutation]);
 
   const submitRegister = useCallback(() => {
     if (registerMutation.isPending) return;
-    if (!firstName || !lastName || !regEmail || !regPassword) {
+    if (!firstName || !lastName || !regEmail || !regPassword || !facility) {
       setRegError(COPY.registerMissingFields);
       return;
     }
@@ -89,6 +97,7 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
           setDoneKind("register");
           setMode("done");
         },
+        onError: (e) => setRegError(e instanceof Error ? e.message : "Registration failed."),
       }
     );
   }, [firstName, lastName, regEmail, facility, regPassword, agreedToTerms, registerMutation]);
@@ -134,6 +143,8 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
       onEmailChange: setRegEmail,
       facility,
       onFacilityChange: setFacility,
+      facilityOptions: facilitiesQuery.data ?? [],
+      facilitiesLoading: facilitiesQuery.isPending,
       password: regPassword,
       onPasswordChange: setRegPassword,
       passwordStrength,

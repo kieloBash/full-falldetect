@@ -12,6 +12,7 @@
 // and a FALSE_ALARM. Passwords are all "password123" (hash below is bcrypt).
 
 import { ActivityType, FalseAlarmReason, IncidentState, InjurySeverity, PrismaClient, RiskLevel, SensorStatus, UserRole } from '@/app/generated/prisma/client';
+import { hashPassword } from '@/lib/auth/password';
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({
@@ -23,7 +24,6 @@ const prisma = new PrismaClient({
 });
 
 // bcrypt hash of "password123" (cost 10). Replace with your own if hashing live.
-const PW = '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 
 // helper: minutes/hours/days ago
 const min = (n: number) => new Date(Date.now() - n * 60_000);
@@ -43,6 +43,8 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.floor.deleteMany();
   await prisma.facility.deleteMany();
+
+  const PW = await hashPassword("password123");
 
   // ─── Facility + floors ───────────────────────────────────────────────
   const facility = await prisma.facility.create({

@@ -1,9 +1,10 @@
-import type { DoneKind, FacilityId, PasswordStrengthScore } from "./types";
+import type { DoneKind, PasswordStrengthScore } from "./types";
 
-export const FACILITY_OPTIONS: { value: FacilityId; label: string }[] = [
-  { value: "sunrise", label: "Sunrise Senior Living" },
-  { value: "oakwood", label: "Sunrise Senior Living — Oakwood" },
-];
+/**
+ * NOTE: The old hardcoded `FACILITY_OPTIONS` array is gone — facilities now
+ * come from the DB via `useFacilities()` (GET /api/facilities). The register
+ * form should default its <select> to the first fetched option.
+ */
 
 interface PasswordStrengthMeta {
   label: string;
@@ -43,6 +44,7 @@ export const COPY = {
   registerMissingFields: "Fill in every field to create your account.",
   registerPasswordTooShort: "Password must be at least 8 characters.",
   registerTermsRequired: "Please accept the terms to continue.",
+  registerFacilitiesLoading: "Loading facilities…",
   hasAccountPrompt: "Already have an account?",
   minPasswordLength: 8,
 

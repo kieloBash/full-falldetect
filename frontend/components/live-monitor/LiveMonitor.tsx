@@ -11,6 +11,7 @@ import { Sidebar } from "./Sidebar";
 import { ToastStack } from "./ToastStack";
 import { Toolbar } from "./Toolbar";
 import { TopBar } from "./TopBar";
+import { useLogoutMutation } from "@/lib/auth/queries";
 
 export type LiveMonitorProps = UseLiveMonitorOptions;
 
@@ -30,6 +31,7 @@ export type LiveMonitorProps = UseLiveMonitorOptions;
  */
 export function LiveMonitor(props: LiveMonitorProps) {
   const m = useLiveMonitor(props);
+  const logoutMutate = useLogoutMutation()
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans tabular-nums text-slate-900" style={{ background: "#F1F5F9" }}>
@@ -45,6 +47,9 @@ export function LiveMonitor(props: LiveMonitorProps) {
         totalCount={m.roomsOnFloor.length}
         anySensorDown={m.anySensorDown}
       />
+      <button onClick={() => {
+        logoutMutate.mutate()
+      }}>logout</button>
 
       <ActiveAlertBanner activeCount={m.activeCount} reducedMotion={m.reducedMotion} onJumpToAlert={m.jumpToFirstActiveAlert} />
 
