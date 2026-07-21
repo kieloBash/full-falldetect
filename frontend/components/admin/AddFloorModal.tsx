@@ -39,7 +39,7 @@ export function AddFloorModal({ name, onNameChange, wing, onWingChange, onCancel
       }
     >
       <ModalTextField id="floor-name" label="Floor name" value={name} onChange={onNameChange} placeholder="e.g. Floor 4" />
-      <ModalTextField id="floor-wing" label="Wing" value={wing} onChange={onWingChange} placeholder="e.g. Sunrise Wing" />
+      {/* <ModalTextField id="floor-wing" label="Wing" value={wing} onChange={onWingChange} placeholder="e.g. Sunrise Wing" /> */}
     </ModalShell>
   );
 }

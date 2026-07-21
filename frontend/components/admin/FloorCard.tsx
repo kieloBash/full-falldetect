@@ -12,12 +12,11 @@ export function FloorCard({ floor, selected, onSelect }: FloorCardProps) {
   return (
     <div
       onClick={onSelect}
-      className={`mb-2 cursor-pointer rounded-[10px] p-[14px] ${
-        selected ? "border-[1.5px] border-teal-600 bg-teal-50" : "border border-slate-200 bg-white"
-      }`}
+      className={`mb-2 cursor-pointer rounded-[10px] p-[14px] ${selected ? "border-[1.5px] border-teal-600 bg-teal-50" : "border border-slate-200 bg-white"
+        }`}
     >
       <div className="flex items-center justify-between">
-        <div className="text-[14.5px] font-semibold">{floor.name}</div>
+        <div className="text-[14.5px] font-semibold">Floor {floor.name}</div>
         <span className={`h-2 w-2 flex-none rounded-full ${floorStatusDotClass(floor)}`} />
       </div>
       <div className="mt-[3px] text-[12.5px] text-slate-600">{floor.wing}</div>

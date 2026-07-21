@@ -14,7 +14,7 @@ export function useFloorsQuery() {
   return useQuery({
     queryKey: adminKeys.floors,
     queryFn: api.fetchFloors,
-    initialData: buildFloors,
+    // initialData: buildFloors,
   });
 }
 

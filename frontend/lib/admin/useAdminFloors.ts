@@ -20,7 +20,7 @@ const EMPTY_ROOM_FORM: RoomFormValues = { room: "", sensorId: "", resident: "", 
  */
 export function useAdminFloors() {
   const floorsQuery = useFloorsQuery();
-  const floors = floorsQuery.data;
+  const floors = floorsQuery.data ?? [];
 
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
 
