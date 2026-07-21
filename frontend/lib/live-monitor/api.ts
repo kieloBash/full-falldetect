@@ -15,8 +15,8 @@ async function json<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-export async function fetchRooms(floor?: string): Promise<Room[]> {
-  const qs = floor ? `?floor=${encodeURIComponent(floor)}` : "";
+export async function fetchRooms(floor?: string | null): Promise<Room[]> {
+  const qs = floor ? `?floor=${encodeURIComponent(floor)}` : "?floor=";
   return json<Room[]>(await fetch(`/api/monitor${qs}`));
 }
 

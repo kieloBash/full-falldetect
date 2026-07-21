@@ -1,5 +1,7 @@
 /** Shared types for the FallDetect Live Monitor screen. */
 
+import { Floor } from "@/app/generated/prisma/client";
+
 export type AlertState = "idle" | "active" | "acknowledged" | "resolved" | "falsealarm";
 
 /** `effState()` also introduces "offline" for idle rooms whose sensor is down. */
@@ -9,14 +11,14 @@ export type SensorStatus = "online" | "degraded" | "offline";
 
 export type RiskLevel = "low" | "medium" | "high";
 
-export type FloorId = "2" | "3";
+export type FloorId = string
 
 export type ViewMode = "grid" | "wall";
 
 export interface Room {
   id: string;
   label: string;
-  floor: FloorId;
+  floor: Floor;
   resident: string;
   risk: RiskLevel;
   sensorStatus: SensorStatus;

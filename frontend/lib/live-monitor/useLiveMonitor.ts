@@ -1,6 +1,8 @@
 "use client";
 
+import { Floor } from "@/app/generated/prisma/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFloors } from "../floor/queries";
 import {
   useAcknowledgeMutation,
   useActivityQuery,
@@ -42,7 +44,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   const { startWithActiveFall = false, muteSound = false, reduceMotion = false } = options;
 
   const [view, setView] = useState<ViewMode>("grid");
-  const [floor, setFloor] = useState<FloorId>("2");
+  const [floor, setFloor] = useState<FloorId | null>("");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [muted, setMuted] = useState(muteSound);
@@ -63,6 +65,14 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
 
   const activityQuery = useActivityQuery();
   const activity = useMemo<ActivityItem[]>(() => activityQuery.data ?? [], [activityQuery.data]);
+
+  const floorsQuery = useFloors();
+  const floors = useMemo<Floor[]>(() => floorsQuery.data ?? [], [floorsQuery.data]);
+
+  useEffect(() => {
+    if (floors.length > 0)
+      setFloor(floors[0].id)
+  }, [floors])
 
   /* 1s tick drives live elapsed timers and the camera-feed timestamp. */
   useEffect(() => {
@@ -107,6 +117,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   const simulateFallMutation = useSimulateFallMutation();
   const simulateFall = useCallback(
     (forceId?: string) => {
+      if (!floor) return
       simulateFallMutation.mutate(
         { roomId: forceId, floor },
         {
@@ -204,7 +215,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   }, []);
 
   const focusRoom = useCallback((room: Room) => {
-    setFloor(room.floor);
+    setFloor(room.floor.id);
     setSelectedId(room.id);
   }, []);
 
@@ -251,7 +262,9 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
 
   /* ── Derived state ──────────────────────────────────────────────────── */
 
-  const roomsOnFloor = useMemo(() => rooms.filter((r) => r.floor === floor), [rooms, floor]);
+  const roomsOnFloor = useMemo(() => {
+    return floor ? rooms.filter((r) => r.floor.id === floor) : rooms
+  }, [rooms, floor]);
 
   const visibleRooms = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -273,7 +286,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   const anySensorDown = useMemo(() => roomsOnFloor.some((r) => r.sensorStatus !== "online"), [roomsOnFloor]);
 
   const selectedRoom = useMemo(
-    () => (selectedId ? rooms.find((r) => r.id === selectedId && r.floor === floor) ?? null : null),
+    () => (selectedId ? rooms.find((r) => r.id === selectedId && r.floor.id === floor) ?? null : null),
     [rooms, selectedId, floor]
   );
   const liveRoom = useMemo(() => (liveId ? rooms.find((r) => r.id === liveId) ?? null : null), [rooms, liveId]);
@@ -302,6 +315,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     activity,
     searchInputRef,
     roomsLoading: roomsQuery.isPending,
+    floors,
 
     // derived
     roomsOnFloor,

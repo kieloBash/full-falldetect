@@ -17,9 +17,9 @@ export const liveMonitorKeys = {
  * the source of truth, so actions invalidate this query (see the mutations'
  * `onSuccess`) and the grid reflects the new state after a refetch.
  */
-export function useRoomsQuery(floor: FloorId) {
+export function useRoomsQuery(floor: FloorId | null) {
   return useQuery({
-    queryKey: liveMonitorKeys.rooms(floor),
+    queryKey: liveMonitorKeys.rooms(floor ?? ""),
     queryFn: () => api.fetchRooms(floor),
     staleTime: 5_000,
   });

@@ -11,7 +11,6 @@ import { Sidebar } from "./Sidebar";
 import { ToastStack } from "./ToastStack";
 import { Toolbar } from "./Toolbar";
 import { TopBar } from "./TopBar";
-import { useLogoutMutation } from "@/lib/auth/queries";
 
 export type LiveMonitorProps = UseLiveMonitorOptions;
 
@@ -31,12 +30,11 @@ export type LiveMonitorProps = UseLiveMonitorOptions;
  */
 export function LiveMonitor(props: LiveMonitorProps) {
   const m = useLiveMonitor(props);
-  const logoutMutate = useLogoutMutation()
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans tabular-nums text-slate-900" style={{ background: "#F1F5F9" }}>
       <TopBar
-        floor={m.floor}
+        floor={m.floor ?? ""}
         query={m.query}
         onQueryChange={m.setQuery}
         searchInputRef={m.searchInputRef as any}
@@ -60,11 +58,12 @@ export function LiveMonitor(props: LiveMonitorProps) {
 
         <main className="flex min-w-0 flex-1 flex-col">
           <Toolbar
-            floor={m.floor}
+            floor={m.floor ?? ""}
             roomCount={m.roomsOnFloor.length}
             view={m.view}
             onFloorChange={m.selectFloor}
             onViewChange={m.setView}
+            floors={m.floors}
           />
 
           <div className="flex-1 overflow-auto" style={{ background: "#F1F5F9" }}>

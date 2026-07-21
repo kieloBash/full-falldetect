@@ -1,3 +1,4 @@
+import { Floor } from "@/app/generated/prisma/client";
 import type { AlertState, FloorId, RiskLevel, Room, SensorStatus } from "@/lib/live-monitor/types";
 import "server-only";
 
@@ -23,7 +24,7 @@ export interface RoomRow {
   id: string;
   label: string;
   zone: string;
-  floor: { label: string };
+  floor: Floor;
   resident: { firstName: string; lastName: string; risk: string } | null;
   sensor: { status: string } | null;
   incidents: Array<{
@@ -43,7 +44,7 @@ function initialsOf(first: string, last: string): string {
  * at most the single open incident (filter to ACTIVE/ACKNOWLEDGED in the
  * query); if present it drives alertState/startedAt/acknowledgedBy.
  */
-export function projectRoom(row: RoomRow): Room {
+export function projectRoom(row: any): Room {
   const residentName = row.resident ? `${row.resident.firstName} ${row.resident.lastName}` : "Unassigned";
   const open = row.incidents[0];
   const alertState: AlertState = open ? OPEN_STATE_TO_UI[open.state] ?? "idle" : "idle";
@@ -51,7 +52,7 @@ export function projectRoom(row: RoomRow): Room {
   return {
     id: row.id,
     label: row.label,
-    floor: (row.floor.label as FloorId),
+    floor: (row.floor),
     resident: residentName,
     risk: row.resident ? RISK_TO_UI[row.resident.risk] ?? "low" : "low",
     sensorStatus: row.sensor ? SENSOR_TO_UI[row.sensor.status] ?? "offline" : "offline",
@@ -70,7 +71,7 @@ export function projectRoom(row: RoomRow): Room {
 
 /** The Prisma `include`/`select` that produces a `RoomRow`. Import in routes. */
 export const ROOM_INCLUDE = {
-  floor: { select: { label: true } },
+  floor: { select: { label: true, id: true } },
   resident: { select: { firstName: true, lastName: true, risk: true } },
   sensor: { select: { status: true } },
   incidents: {

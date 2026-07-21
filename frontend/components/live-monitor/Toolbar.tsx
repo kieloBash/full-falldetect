@@ -1,29 +1,33 @@
-import { FLOOR_OPTIONS } from "@/lib/live-monitor/constants";
-import type { FloorId, ViewMode } from "@/lib/live-monitor/types";
+import { Floor } from "@/app/generated/prisma/client";
 import { Icon } from "@/components/icons/Icon";
+import type { FloorId, ViewMode } from "@/lib/live-monitor/types";
+import { useMemo } from "react";
 
 export interface ToolbarProps {
   floor: FloorId;
   roomCount: number;
   view: ViewMode;
+  floors: Floor[];
   onFloorChange: (floor: FloorId) => void;
   onViewChange: (view: ViewMode) => void;
 }
 
 function segmentClass(active: boolean) {
-  return `flex items-center gap-[6px] rounded-[7px] px-3 py-[6px] text-[13px] font-semibold ${
-    active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.08)]" : "bg-transparent text-slate-600"
-  }`;
+  return `flex items-center gap-[6px] rounded-[7px] px-3 py-[6px] text-[13px] font-semibold ${active ? "bg-white text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,.08)]" : "bg-transparent text-slate-600"
+    }`;
 }
 
 /** Page title/context + floor filter + Grid/Camera-wall view toggle. */
-export function Toolbar({ floor, roomCount, view, onFloorChange, onViewChange }: ToolbarProps) {
+export function Toolbar({ floor, floors, roomCount, view, onFloorChange, onViewChange }: ToolbarProps) {
+
+  const currentFloor = useMemo(() => floors.find((f) => f.id === floor), [floors, floor])
+
   return (
     <div className="flex flex-none flex-wrap items-center gap-4 border-b border-slate-200 bg-white px-6 py-4">
       <div className="min-w-0">
         <h1 className="m-0 text-xl font-semibold tracking-tight text-slate-900">Live Monitor</h1>
         <div className="mt-[2px] text-[12.5px] text-slate-600">
-          Evening shift · Floor {floor} · {roomCount} rooms monitored
+          Evening shift · Floor {currentFloor?.label} · {roomCount} rooms monitored
         </div>
       </div>
 
@@ -34,9 +38,9 @@ export function Toolbar({ floor, roomCount, view, onFloorChange, onViewChange }:
         onChange={(e) => onFloorChange(e.target.value as FloorId)}
         className="h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-3 text-[13px] font-medium text-slate-900"
       >
-        {FLOOR_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
+        {floors.map((opt) => (
+          <option key={opt.id} value={opt.id}>
+            Floor {opt.label}
           </option>
         ))}
       </select>
