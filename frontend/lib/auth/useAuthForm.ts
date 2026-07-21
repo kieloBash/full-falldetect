@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { COPY } from "./constants";
 import { useFacilities, useLoginMutation, useRegisterMutation } from "./queries";
@@ -46,6 +47,8 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
 
+  const router = useRouter();
+
   // Default the facility select to the first fetched option once loaded.
   useEffect(() => {
     if (!facility && facilitiesQuery.data?.length) {
@@ -66,9 +69,13 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
     loginMutation.mutate(
       { email: loginEmail, password: loginPassword, rememberMe },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           setDoneKind("login");
           setMode("done");
+          if (data.role === "ADMIN") {
+            router.push("/admin")
+            return;
+          }
         },
         onError: (e) => setLoginError(e instanceof Error ? e.message : "Sign in failed."),
       }

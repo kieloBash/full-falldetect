@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { AuthScreen } from "./AuthScreen";
+
 
 /**
  * Reads the `?next=` param the auth middleware appends when it redirects an

@@ -26,6 +26,6 @@ export async function POST(req: Request) {
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-  const result: AuthResult = { userId: user.id, email: user.email };
+  const result: AuthResult = { userId: user.id, email: user.email, role: user.role };
   return NextResponse.json(result);
 }

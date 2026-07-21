@@ -5,7 +5,7 @@ Production-shaped port of screens from the Claude Design handoff (project
 project using **Tailwind CSS**, **lucide-react** icons, and a **TanStack
 Query + axios** data layer (mock-backed for now).
 
-Two screens are implemented:
+Three screens are implemented:
 
 - **Live Monitor** (`FallDetect Live Monitor.dc.html`, iterated in
   `chats/chat1.md`) — the nurse-station landing screen: a live grid of every
@@ -15,6 +15,10 @@ Two screens are implemented:
 - **Auth** (`FallDetect Auth.dc.html`) — a split-panel sign-in / create-account
   screen with a dark brand panel, tabbed forms, password-strength meter, and
   a success confirmation state.
+- **Admin · Floor Management** (`FallDetect Admin.dc.html`) — a CRUD screen
+  for the org structure Live Monitor visualizes: a floor list, a rooms table
+  per floor, and add/edit modals for floors, rooms, and their sensor
+  assignments.
 
 ## 1. Install dependencies
 
@@ -22,28 +26,30 @@ Two screens are implemented:
 npm install lucide-react @tanstack/react-query axios
 ```
 
-(`react` / `react-dom` / `tailwindcss` are assumed already present in a
-Next.js app.)
+(`react` / `react-dom` / `tailwindcss` / `next` are assumed already present
+in a Next.js app.)
 
 ## 2. Copy the files in
 
-Copy everything under `src/` into your app's `src/` directory (or merge the
-paths manually if you don't use a `src/` root — just keep `components/`,
+Copy everything under `` into your app's `` directory (or merge the
+paths manually if you don't use a `` root — just keep `components/`,
 `lib/`, and `app/` as siblings, or adjust the `@/*` import alias below to
 match).
 
 ```
-src/
+
   app/
     live-monitor/
       page.tsx              — route entry: wraps <LiveMonitor /> in <QueryProvider>
     login/
       page.tsx               — route entry (server component, exports metadata)
+    admin/
+      page.tsx                — route entry: wraps <AdminScreen /> in <QueryProvider>
   components/
     providers/
       QueryProvider.tsx      — app-wide TanStack QueryClientProvider
     icons/
-      Icon.tsx                — shared name → lucide-react icon registry (used by both screens)
+      Icon.tsx                — shared name → lucide-react icon registry (used by all three screens)
     live-monitor/
       LiveMonitor.tsx          — top-level client component (composes everything)
       TopBar.tsx                — brand, breadcrumb, search, simulate/mute/health
@@ -77,6 +83,22 @@ src/
         Checkbox.tsx                        — labeled checkbox (remember me / terms)
         SubmitButton.tsx                     — primary button with busy-state spinner
         PasswordStrengthMeter.tsx             — 4-bar strength indicator + label
+    admin/
+      AdminScreen.tsx            — top-level client component (composes everything)
+      AdminTopBar.tsx              — brand, "Admin" badge, static breadcrumb
+      AdminSidebar.tsx              — Monitoring (Live Monitor links out) + Administration nav
+      FloorManagementToolbar.tsx     — title + "Add floor"
+      FloorList.tsx                    — left pane: selectable floor cards
+      FloorCard.tsx                      — one floor card (name, wing, counts, status dot)
+      RoomTable.tsx                        — right pane: rooms table + "Add room" + empty state
+      RoomRow.tsx                            — one table row + edit/remove actions
+      SensorStatusPill.tsx                    — plain colored status pill (no icon)
+      ModalShell.tsx                            — shared overlay/panel/animation for both modals
+      AddFloorModal.tsx                          — floor name + wing form
+      AddEditRoomModal.tsx                        — room number/sensor id/resident/status form
+      fields/
+        ModalTextField.tsx                         — labeled text input sized for these modals
+        ModalSelectField.tsx                         — labeled select sized for these modals
   lib/
     api/
       client.ts              — shared axios instance
@@ -95,6 +117,14 @@ src/
       api.ts                        — login()/register() (mock-backed, see below)
       queries.ts                     — useLoginMutation / useRegisterMutation
       useAuthForm.ts                   — all state + actions for the screen (the "brain")
+    admin/
+      types.ts                — AdminFloor / AdminRoom / form-value types (reuses Live Monitor's SensorStatus)
+      constants.ts              — copy strings, status pill metadata, sidebar nav config
+      utils.ts                    — floorStatusDotClass, onlineSensorCount
+      mock-data.ts                  — seed floors + rooms
+      api.ts                          — floor/room CRUD (mock-backed, see below)
+      queries.ts                       — useFloorsQuery + create/update/delete mutations
+      useAdminFloors.ts                  — all state + actions for the screen (the "brain")
 ```
 
 ## 3. Wire up Tailwind
@@ -102,18 +132,18 @@ src/
 Merge `tailwind.config.additions.ts` (at the root of this bundle) into your
 `tailwind.config.{ts,js}` under `theme.extend` — it defines the
 `animate-fd-*` keyframes the components reference (alert pulse, blinking REC
-dot, toast entrance, banner flash, and the Auth submit-button spinner) and
-the `Inter` / `IBM Plex Sans` / `IBM Plex Mono` font stacks. Everything else
-is plain Tailwind utilities: the brief's palette (slate neutrals, teal
-accent, red/amber/green semantic colors) maps exactly onto Tailwind's
-default color scale, so no custom theme colors were needed.
+dot, toast entrance, banner flash, Auth's submit-button spinner, and Admin's
+modal entrance) and the `Inter` / `IBM Plex Sans` / `IBM Plex Mono` font
+stacks. Everything else is plain Tailwind utilities: the brief's palette
+(slate neutrals, teal accent, red/amber/green semantic colors) maps exactly
+onto Tailwind's default color scale, so no custom theme colors were needed.
 
 ```ts
 import type { Config } from "tailwindcss";
 import { fallDetectThemeExtend } from "./tailwind.config.additions";
 
 export default {
-  content: ["./src/**/*.{ts,tsx}"],
+  content: ["./**/*.{ts,tsx}"],
   theme: { extend: { ...fallDetectThemeExtend } },
 } satisfies Config;
 ```
@@ -137,14 +167,14 @@ setup does), add:
 ```json
 {
   "compilerOptions": {
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./*"] }
   }
 }
 ```
 
 ## 5. Render it
 
-Both screens ship their own route under `app/`, already wired to
+All three screens ship their own route under `app/`, already wired to
 `QueryProvider`:
 
 ```tsx
@@ -177,6 +207,20 @@ function LoginPageClient() {
 }
 ```
 
+```tsx
+// app/admin/page.tsx (already included)
+import { AdminScreen } from "@/components/admin/AdminScreen";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+
+export default function AdminPage() {
+  return (
+    <QueryProvider>
+      <AdminScreen />
+    </QueryProvider>
+  );
+}
+```
+
 `onAuthenticated` fires when the user clicks through from the post-login/
 post-register success screen. Omit it and `<AuthScreen />` just resets back
 to the sign-in tab, matching the original prototype's demo behavior.
@@ -192,55 +236,91 @@ Optional demo props for Live Monitor (all default to `false`):
 > shared one instead, so the cache persists across navigation. See the note
 > at the top of `QueryProvider.tsx`.
 
+> **Access control**: Admin has no route-level role gating yet — there's no
+> real session/auth wiring to gate on until the Auth screen's mock
+> `login()`/`register()` become real endpoints. Once they do, redirect
+> non-admins out of `/admin` in middleware or in the page itself.
+
 ## The data layer: TanStack Query + axios, mock-backed for now
 
-Both screens fetch/mutate through **TanStack Query** and are ready for
+All three screens fetch/mutate through **TanStack Query** and are ready for
 **axios**, but nothing hits a real network yet — every request currently
-resolves local mock data after a short delay. The pattern is the same in
-both features:
+resolves local mock data after a short delay. The pattern is the same
+across features:
 
 - **`lib/api/client.ts`** — the shared axios instance
   (`baseURL` from `NEXT_PUBLIC_API_BASE_URL`). Not imported anywhere yet.
 - **`lib/<feature>/api.ts`** — one async function per endpoint
   (Live Monitor: `fetchRooms`, `acknowledgeAlert`, `resolveAlert`,
-  `flagFalseAlarm`, `reconnectSensor`; Auth: `login`, `register`), each
-  resolving mock data today. Every function has a `// TODO(api)` comment
-  with the exact `apiClient` call to swap in — that's the *only* file that
-  needs to change once a backend exists.
+  `flagFalseAlarm`, `reconnectSensor`; Auth: `login`, `register`; Admin:
+  `fetchFloors`, `createFloor`, `createRoom`, `updateRoom`, `deleteRoom`),
+  each resolving mock data today. Every function has a `// TODO(api)`
+  comment with the exact `apiClient` call to swap in — that's the *only*
+  file that needs to change once a backend exists.
 - **`lib/<feature>/queries.ts`** — the TanStack Query layer built on top of
-  `api.ts`: `useRoomsQuery` (seeded via `initialData` so there's no loading
-  flash) and four mutations for Live Monitor; `useLoginMutation` /
-  `useRegisterMutation` for Auth.
-- **`lib/<feature>/use<Feature>Form.ts` / `useLiveMonitor.ts`** — the "brain"
-  hook wiring local state to those query/mutation hooks. Response actions
-  call `.mutate(...)` and apply the resulting local-state update (plus, for
-  Live Monitor, the activity-feed entry and toast) in `onSuccess`. Swapping
-  `api.ts` from mock to real `apiClient` calls won't require touching this
-  wiring or any component.
+  `api.ts`. Two different, both-valid patterns are demonstrated here:
+  - Live Monitor keeps a local optimistic copy of the room roster and
+    patches it directly in each mutation's `onSuccess` — right for a screen
+    where sub-second UI feedback matters.
+  - Admin's mutations just call `queryClient.invalidateQueries()` on
+    success and let the floors query refetch — simpler, and the right call
+    for a CRUD screen where a few hundred ms of round-trip latency is fine.
+    Its `api.ts` keeps a module-level in-memory store so creates/edits/
+    deletes actually persist for the session instead of resetting on every
+    refetch.
+- **`lib/<feature>/use<Feature>.ts`** — the "brain" hook wiring local state
+  to those query/mutation hooks: `useLiveMonitor`, `useAuthForm`,
+  `useAdminFloors`. Swapping any feature's `api.ts` from mock to real
+  `apiClient` calls won't require touching this wiring or any component.
 
 **What stays plain React state** (no server concept to query/mutate): Live
 Monitor's Simulate fall trigger, 1s clock tick, view/floor/search, pin list,
-and toasts; Auth's current tab/mode and raw field values before submit.
+and toasts; Auth's current tab/mode and raw field values before submit;
+Admin's selected floor and both modals' open/closed + form state.
 
-**Not yet wired to a query**: `historyForRisk()` in `mock-data.ts` (the Live
-Monitor inspector's "Recent incidents" list) is still a plain synchronous
-helper — small enough that turning it into a query wasn't worth the
-loading-state complexity yet, but `GET /residents/{id}/incidents` is the
+**Not yet wired to a query**: `historyForRisk()` in Live Monitor's
+`mock-data.ts` (the inspector's "Recent incidents" list) is still a plain
+synchronous helper — small enough that turning it into a query wasn't worth
+the loading-state complexity yet, but `GET /residents/{id}/incidents` is the
 obvious future endpoint for it.
 
 ## Icons
 
 All icons go through `components/icons/Icon.tsx`, a `name -> lucide-react
-component` map (e.g. `<Icon name="check" />`) shared by both screens. To use
-a lucide icon that isn't in the map yet, import it in `Icon.tsx` and add it
-to the `ICONS` object — every call site stays a plain semantic name.
+component` map (e.g. `<Icon name="check" />`) shared by all three screens.
+To use a lucide icon that isn't in the map yet, import it in `Icon.tsx` and
+add it to the `ICONS` object — every call site stays a plain semantic name.
+
+## A modeling note: sensor status has one enum, not two
+
+The Live Monitor and Admin design files were built in separate sessions and
+ended up with slightly different vocabulary for the same three-state sensor
+health concept: Live Monitor calls the middle tier "degraded" ("Signal
+degraded"), Admin's mock data called it "warning". Rather than ship two
+overlapping status enums, `lib/admin/types.ts` re-exports Live Monitor's
+`SensorStatus` ("online" | "degraded" | "offline") and Admin's own
+`ADMIN_SENSOR_STATUS_META` just displays "Warning" as the label for
+"degraded" — one source of truth, two presentations (Live Monitor's
+icon+text `StatusBadge` vs. Admin's plain colored `SensorStatusPill`).
+
+## A design-fidelity note: two slightly different input heights
+
+Auth's text/password/select inputs are 44px tall; Admin's modal inputs are
+42px. Both are exactly what their respective source designs specified, so
+rather than force one to match the other (and drift from a handoff), each
+feature keeps its own small field components (`components/auth/fields/` vs
+`components/admin/fields/`). Worth unifying into a shared `components/ui/`
+kit later if you want one canonical input size across the app.
 
 ## Scope note
 
-Live Monitor and Auth are the two screens actually designed and prototyped
-in the Claude Design session. Incidents has a written implementation-handoff
-spec (`project/FallDetect Incidents - Handoff.dc.html`) but no built UI, and
-Analytics/Settings were never scoped. Live Monitor's sidebar nav items for
-those sections are present (matching the information architecture) but
-inert — clicking them shows a toast rather than navigating, exactly like the
-source prototype.
+Live Monitor, Auth, and Admin · Floor Management are the three screens
+actually designed and prototyped in the Claude Design session. Incidents
+has a written implementation-handoff spec
+(`project/FallDetect Incidents - Handoff.dc.html`) but no built UI, and
+Analytics/Settings/Users/Sensors were never scoped — Admin's sidebar shows
+Users/Sensors/Settings as "SOON"-badged and disabled (not hidden, per the
+brief's "disabled with a tooltip, never hidden silently" rule), and Live
+Monitor's Incidents/Analytics/Settings nav items show a toast rather than
+navigating, exactly like the source prototypes. Admin's "Live Monitor" nav
+item is a real link, since that route exists.

@@ -1,4 +1,4 @@
-import { User } from "@/app/generated/prisma/client";
+import { User, UserRole } from "@/app/generated/prisma/client";
 import type { FacilityOption, LoginFormValues, RegisterFormValues } from "./types";
 
 /**
@@ -12,6 +12,7 @@ import type { FacilityOption, LoginFormValues, RegisterFormValues } from "./type
 export interface AuthResult {
   userId: string;
   email: string;
+  role: UserRole;
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {

@@ -53,5 +53,5 @@ export const COPY = {
     login: "Welcome back — your shift dashboard is ready.",
     register: "Your staff account is ready. An admin will confirm your facility access shortly.",
   } satisfies Record<DoneKind, string>,
-  continueLabel: "Go to Live Monitor →",
+  continueLabel: "Continue →",
 } as const;
