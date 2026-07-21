@@ -10,7 +10,7 @@ import {
 } from "./queries";
 import type { AdminRoom, RoomFormValues } from "./types";
 
-const EMPTY_ROOM_FORM: RoomFormValues = { room: "", sensorId: "", resident: "", status: "online" };
+const EMPTY_ROOM_FORM: RoomFormValues = { room: "", sensorId: "", resident: "", status: "online", floorId: "" };
 
 /**
  * Owns all state for the Admin Floor Management screen: the floors/rooms
@@ -76,7 +76,7 @@ export function useAdminFloors() {
 
   const openEditRoomModal = useCallback((room: AdminRoom) => {
     setEditingRoomId(room.id);
-    setRoomForm({ room: room.room, sensorId: room.sensorId, resident: room.resident, status: room.status });
+    setRoomForm({ room: room.room, sensorId: room.sensorId, resident: room.resident, status: room.status, floorId: room.floorId });
     setRoomModalOpen(true);
   }, []);
 
@@ -90,16 +90,16 @@ export function useAdminFloors() {
     if (!selectedFloor || !roomForm.room.trim()) return;
     const onSuccess = () => setRoomModalOpen(false);
     if (editingRoomId) {
-      updateRoomMutation.mutate({ floorId: selectedFloor.id, roomId: editingRoomId, values: roomForm }, { onSuccess });
+      updateRoomMutation.mutate({ roomId: editingRoomId, values: roomForm }, { onSuccess });
     } else {
-      createRoomMutation.mutate({ floorId: selectedFloor.id, values: roomForm }, { onSuccess });
+      createRoomMutation.mutate({ values: roomForm }, { onSuccess });
     }
   }, [selectedFloor, roomForm, editingRoomId, createRoomMutation, updateRoomMutation]);
 
   const removeRoom = useCallback(
     (roomId: string) => {
       if (!selectedFloor) return;
-      deleteRoomMutation.mutate({ floorId: selectedFloor.id, roomId });
+      deleteRoomMutation.mutate(roomId);
     },
     [selectedFloor, deleteRoomMutation]
   );

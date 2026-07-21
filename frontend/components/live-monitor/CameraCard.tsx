@@ -30,7 +30,7 @@ export function CameraCard({ room, now, reducedMotion, onSelect, onExpand, onAck
           <div className="min-w-0">
             <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px] font-semibold">{room.resident}</div>
             <div className="text-[11px] font-medium text-slate-400">
-              Room {room.label} · Floor {room.floor}
+              Room {room.label} · Floor {room.label}
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { BADGE_META, BADGE_VARIANT_BY_STATE } from "./constants";
-import type { EffectiveState, FloorId, History, Room } from "./types";
+import type { EffectiveState, History, Room } from "./types";
 import { formatDateHistory, formatHistoryMessage } from "./utils";
 
 type RoomSeed = readonly [id: string, resident: string, risk: Room["risk"], sensorStatus: Room["sensorStatus"], zone: string];
@@ -35,39 +35,6 @@ const FLOOR_3: readonly RoomSeed[] = [
   ["307", "Sylvia Trent", "low", "degraded", "B"],
   ["308", "Marcus Webb", "medium", "online", "B"],
 ];
-
-function seedToRoom([id, resident, risk, sensorStatus, zone]: RoomSeed, floor: FloorId): Room {
-  return {
-    id,
-    label: id,
-    floor,
-    resident,
-    risk,
-    sensorStatus,
-    zone: `Zone ${zone}`,
-    initials: resident
-      .split(" ")
-      .map((w) => w[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase(),
-    alertState: "idle",
-    startedAt: null,
-    acknowledgedBy: null,
-    falseAlarmReason: null,
-    history: []
-  };
-}
-
-/**
- * Seed data for the demo/prototype.
- * TODO(api): replace with `GET /monitor?floor=` and subscribe to the
- * realtime alert stream (see the Incidents handoff doc's API section for
- * the sibling endpoints this screen will eventually share).
- */
-export function buildRooms(): Room[] {
-  return [...FLOOR_2.map((r) => seedToRoom(r, "2")), ...FLOOR_3.map((r) => seedToRoom(r, "3"))];
-}
 
 export const INITIAL_PINNED_ROOM_IDS = ["201", "218"];
 

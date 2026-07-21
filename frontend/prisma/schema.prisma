@@ -175,6 +175,8 @@ model Resident {
   risk        RiskLevel @default(LOW)
   dateOfBirth DateTime?
   admittedAt  DateTime  @default(now())
+  notes       String    @default("") // ← added: Patient Management care notes
+  discharged  Boolean   @default(false) // ← added: Patient Management discharge flag
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

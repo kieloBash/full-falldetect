@@ -1,10 +1,15 @@
-import { COPY } from "@/lib/admin/constants";
+"use client";
+
+import { usePathname } from "next/navigation";
+import { ADMIN_ROUTES, COPY } from "@/lib/admin/constants";
 import { COPY as LIVE_MONITOR_COPY } from "@/lib/live-monitor/constants";
 import { Icon } from "@/components/icons/Icon";
-import { ProfileDropdown } from "../ui/profile-dropdown";
 
-/** Global chrome for the Admin section: brand, "Admin" badge, static breadcrumb, help, user menu. */
+/** Global chrome for the Admin section: brand, "Admin" badge, breadcrumb (label derived from the current route), help, user menu. */
 export function AdminTopBar() {
+  const pathname = usePathname();
+  const activeLabel = ADMIN_ROUTES.find((r) => r.path === pathname)?.label ?? COPY.badge;
+
   return (
     <header className="z-30 flex h-[60px] flex-none items-center gap-5 border-b border-slate-200 bg-white px-5">
       <div className="flex items-center gap-[10px]">
@@ -21,7 +26,7 @@ export function AdminTopBar() {
       <div className="flex items-center gap-[7px] text-[13px] text-slate-400">
         <span>{COPY.breadcrumbBase}</span>
         <span>&rsaquo;</span>
-        <span className="font-medium text-slate-600">{COPY.pageTitle}</span>
+        <span className="font-medium text-slate-600">{activeLabel}</span>
       </div>
 
       <div className="flex-1" />
@@ -34,7 +39,7 @@ export function AdminTopBar() {
         >
           ?
         </button>
-        <ProfileDropdown />
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-xs font-semibold text-white">DO</div>
       </div>
     </header>
   );

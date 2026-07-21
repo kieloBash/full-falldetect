@@ -1,58 +1,77 @@
 import "server-only";
-import type { AdminFloor, AdminRoom, SensorStatus } from "./types";
+import type { Floor, Patient, Room, SensorStatus } from "./types";
 
 /**
- * Projects the normalized Floor/Room/Sensor/Resident rows into the flat
- * Admin UI shape. Per the schema-mapping decisions:
- *  - Floor has no wing/name split → UI `name` is `Floor.label`; `wing` is a
- *    display-only string derived from the facility (not stored).
- *  - A UI room row flattens Room + its Sensor + its Resident. Writes only
- *    touch Room + Sensor; resident is read-only here (joined for display).
- *  - UI `sensorId` is the human label → `Sensor.deviceLabel`.
+ * Projects normalized DB rows into the flat Admin UI shapes. Three resources,
+ * each its own projector. Mapping decisions:
+ *  - Floor: UI `name` ← Floor.label; `wing` is display-only (from facility).
+ *  - Room: flattens Room + Sensor. UI `sensorId` ← Sensor.deviceLabel,
+ *    `status` ← Sensor.status. Writes touch Room + Sensor only.
+ *  - Patient: maps to Resident. UI `roomId` is the INVERSE of the schema —
+ *    the room lives on Room.residentId, so we read resident.room?.id. `notes`
+ *    and `discharged` are real columns (added by migration).
  */
 
 const SENSOR_TO_UI: Record<string, SensorStatus> = { ONLINE: "online", DEGRADED: "degraded", OFFLINE: "offline" };
 export const SENSOR_TO_DB: Record<SensorStatus, string> = { online: "ONLINE", degraded: "DEGRADED", offline: "OFFLINE" };
 
+/* ── Floor ─────────────────────────────────────────────────────────────── */
+
 export interface FloorRow {
   id: string;
   label: string;
-  rooms: Array<{
-    id: string;
-    label: string;
-    resident: { firstName: string; lastName: string } | null;
-    sensor: { deviceLabel: string | null; status: string } | null;
-  }>;
 }
 
-function projectRoom(r: FloorRow["rooms"][number]): AdminRoom {
-  return {
-    id: r.id,
-    room: r.label,
-    resident: r.resident ? `${r.resident.firstName} ${r.resident.lastName}` : "",
-    sensorId: r.sensor?.deviceLabel ?? "",
-    status: r.sensor ? SENSOR_TO_UI[r.sensor.status] ?? "offline" : "offline",
-  };
+export function projectFloor(row: FloorRow, wing: string): Floor {
+  return { id: row.id, name: row.label, wing };
 }
 
-export function projectFloor(row: FloorRow, wing: string): AdminFloor {
+/* ── Room ──────────────────────────────────────────────────────────────── */
+
+export interface RoomRow {
+  id: string;
+  label: string;
+  floorId: string;
+  sensor: { deviceLabel: string | null; status: string } | null;
+}
+
+export function projectRoom(row: RoomRow): Room {
   return {
     id: row.id,
-    name: row.label,
-    wing,
-    rooms: row.rooms.map(projectRoom),
+    room: row.label,
+    floorId: row.floorId,
+    sensorId: row.sensor?.deviceLabel ?? "",
+    status: row.sensor ? SENSOR_TO_UI[row.sensor.status] ?? "offline" : "offline",
   };
 }
 
-/** Prisma include producing a FloorRow. */
-export const FLOOR_INCLUDE = {
-  rooms: {
-    orderBy: { label: "asc" as const },
-    select: {
-      id: true,
-      label: true,
-      resident: { select: { firstName: true, lastName: true } },
-      sensor: { select: { deviceLabel: true, status: true } },
-    },
-  },
-} as const;
+/* ── Patient ───────────────────────────────────────────────────────────── */
+
+export interface PatientRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  notes: string;
+  discharged: boolean;
+  /** Back-reference: the Room whose residentId points here (schema 1:1). */
+  room: { id: string } | null;
+}
+
+export function projectPatient(row: PatientRow): Patient {
+  return {
+    id: row.id,
+    name: `${row.firstName} ${row.lastName}`.trim(),
+    roomId: row.room?.id ?? "",
+    notes: row.notes,
+    discharged: row.discharged,
+  };
+}
+
+/** Splits a UI full-name string into first/last on the FIRST space (lossy for
+ *  multi-word surnames, per the mapping decision). */
+export function splitName(name: string): { firstName: string; lastName: string } {
+  const trimmed = name.trim();
+  const i = trimmed.indexOf(" ");
+  if (i === -1) return { firstName: trimmed, lastName: "" };
+  return { firstName: trimmed.slice(0, i), lastName: trimmed.slice(i + 1) };
+}

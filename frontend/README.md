@@ -5,7 +5,7 @@ Production-shaped port of screens from the Claude Design handoff (project
 project using **Tailwind CSS**, **lucide-react** icons, and a **TanStack
 Query + axios** data layer (mock-backed for now).
 
-Three screens are implemented:
+Five screens are implemented:
 
 - **Live Monitor** (`FallDetect Live Monitor.dc.html`, iterated in
   `chats/chat1.md`) — the nurse-station landing screen: a live grid of every
@@ -15,10 +15,12 @@ Three screens are implemented:
 - **Auth** (`FallDetect Auth.dc.html`) — a split-panel sign-in / create-account
   screen with a dark brand panel, tabbed forms, password-strength meter, and
   a success confirmation state.
-- **Admin · Floor Management** (`FallDetect Admin.dc.html`) — a CRUD screen
-  for the org structure Live Monitor visualizes: a floor list, a rooms table
-  per floor, and add/edit modals for floors, rooms, and their sensor
-  assignments.
+- **Admin · Floor Management, Room Management, Patient Management**
+  (`FallDetect Admin.dc.html`) — three separate CRUD screens (not tabs
+  within one screen) sharing one nav shell: a floor list with a read-only
+  per-floor room summary; a full rooms table (room ⇄ floor ⇄ patient) with
+  add/edit/remove; and a patients table (name, room assignment, care notes,
+  active/discharged) with add/edit/remove.
 
 ## 1. Install dependencies
 
@@ -44,12 +46,17 @@ match).
     login/
       page.tsx               — route entry (server component, exports metadata)
     admin/
-      page.tsx                — route entry: wraps <AdminScreen /> in <QueryProvider>
+      layout.tsx               — ONE <QueryProvider> shared by all 3 admin routes below
+      page.tsx                  — /admin — Floor Management
+      rooms/
+        page.tsx                  — /admin/rooms — Room Management
+      patients/
+        page.tsx                   — /admin/patients — Patient Management
   components/
     providers/
       QueryProvider.tsx      — app-wide TanStack QueryClientProvider
     icons/
-      Icon.tsx                — shared name → lucide-react icon registry (used by all three screens)
+      Icon.tsx                — shared name → lucide-react icon registry (used by every screen)
     live-monitor/
       LiveMonitor.tsx          — top-level client component (composes everything)
       TopBar.tsx                — brand, breadcrumb, search, simulate/mute/health
@@ -84,21 +91,29 @@ match).
         SubmitButton.tsx                     — primary button with busy-state spinner
         PasswordStrengthMeter.tsx             — 4-bar strength indicator + label
     admin/
-      AdminScreen.tsx            — top-level client component (composes everything)
-      AdminTopBar.tsx              — brand, "Admin" badge, static breadcrumb
-      AdminSidebar.tsx              — Monitoring (Live Monitor links out) + Administration nav
-      FloorManagementToolbar.tsx     — title + "Add floor"
-      FloorList.tsx                    — left pane: selectable floor cards
-      FloorCard.tsx                      — one floor card (name, wing, counts, status dot)
-      RoomTable.tsx                        — right pane: rooms table + "Add room" + empty state
-      RoomRow.tsx                            — one table row + edit/remove actions
-      SensorStatusPill.tsx                    — plain colored status pill (no icon)
-      ModalShell.tsx                            — shared overlay/panel/animation for both modals
-      AddFloorModal.tsx                          — floor name + wing form
-      AddEditRoomModal.tsx                        — room number/sensor id/resident/status form
+      AdminTopBar.tsx              — brand, "Admin" badge, breadcrumb (label from the current route)
+      AdminSidebar.tsx              — Monitoring (Live Monitor links out) + the 3 admin routes + SOON items
+      AdminToolbar.tsx               — generic title + subtitle + "Add ___" action, shared by all 3 screens
+      FloorManagementScreen.tsx       — /admin: floor list + selected floor's read-only room table
+      FloorList.tsx / FloorCard.tsx    — left pane: selectable floor cards (name, wing, counts, status dot)
+      FloorRoomsTable.tsx               — read-only Room/Resident/Sensor ID/Status table
+      RoomManagementScreen.tsx           — /admin/rooms: full room CRUD
+      RoomManagementTable.tsx             — Room/Floor/Assigned patient/Sensor ID/Actions table
+      RoomManagementRow.tsx                — one row + edit/remove
+      PatientManagementScreen.tsx           — /admin/patients: full patient CRUD
+      PatientTable.tsx                       — Patient/Room/Notes/Status/Actions table
+      PatientRow.tsx                          — one row + edit/remove
+      SensorStatusPill.tsx                     — plain colored status pill (Online/Warning/Offline)
+      PatientStatusPill.tsx                     — plain colored status pill (Active/Discharged)
+      ModalShell.tsx                             — shared overlay/panel/animation for all 3 modals
+      AddFloorModal.tsx                           — floor name + wing form
+      AddEditRoomModal.tsx                         — room number/sensor id/floor form
+      AddEditPatientModal.tsx                       — name/room assignment/notes/discharged form
       fields/
-        ModalTextField.tsx                         — labeled text input sized for these modals
-        ModalSelectField.tsx                         — labeled select sized for these modals
+        ModalTextField.tsx                           — labeled text input sized for these modals
+        ModalSelectField.tsx                           — labeled select sized for these modals
+        ModalTextareaField.tsx                          — labeled textarea (patient notes)
+        ModalCheckboxField.tsx                           — labeled checkbox ("Mark as discharged")
   lib/
     api/
       client.ts              — shared axios instance
@@ -118,13 +133,15 @@ match).
       queries.ts                     — useLoginMutation / useRegisterMutation
       useAuthForm.ts                   — all state + actions for the screen (the "brain")
     admin/
-      types.ts                — AdminFloor / AdminRoom / form-value types (reuses Live Monitor's SensorStatus)
-      constants.ts              — copy strings, status pill metadata, sidebar nav config
-      utils.ts                    — floorStatusDotClass, onlineSensorCount
-      mock-data.ts                  — seed floors + rooms
-      api.ts                          — floor/room CRUD (mock-backed, see below)
-      queries.ts                       — useFloorsQuery + create/update/delete mutations
-      useAdminFloors.ts                  — all state + actions for the screen (the "brain")
+      types.ts                — Floor / Room / Patient / form-value types (reuses Live Monitor's SensorStatus)
+      constants.ts              — copy strings per screen, status pill metadata, nav/route config
+      utils.ts                    — roomsForFloor, activePatientForRoom, roomOptionLabel, etc.
+      mock-data.ts                  — seed floors + rooms + patients (normalized, not nested)
+      api.ts                          — floor/room/patient CRUD (mock-backed, see below)
+      queries.ts                       — useFloorsQuery/useRoomsQuery/usePatientsQuery + mutations
+      useFloorManagement.ts             — brain hook for /admin
+      useRoomManagement.ts               — brain hook for /admin/rooms
+      usePatientManagement.ts             — brain hook for /admin/patients
 ```
 
 ## 3. Wire up Tailwind
@@ -174,7 +191,7 @@ setup does), add:
 
 ## 5. Render it
 
-All three screens ship their own route under `app/`, already wired to
+Live Monitor and Auth each ship one route wired to their own
 `QueryProvider`:
 
 ```tsx
@@ -207,19 +224,33 @@ function LoginPageClient() {
 }
 ```
 
+Admin is **three separate routes** — `/admin`, `/admin/rooms`,
+`/admin/patients` — that share one dataset (floors/rooms/patients), so the
+`QueryProvider` lives once in `app/admin/layout.tsx` instead of per-page:
+
 ```tsx
-// app/admin/page.tsx (already included)
-import { AdminScreen } from "@/components/admin/AdminScreen";
+// app/admin/layout.tsx (already included)
 import { QueryProvider } from "@/components/providers/QueryProvider";
 
-export default function AdminPage() {
-  return (
-    <QueryProvider>
-      <AdminScreen />
-    </QueryProvider>
-  );
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return <QueryProvider>{children}</QueryProvider>;
 }
 ```
+
+```tsx
+// app/admin/page.tsx / app/admin/rooms/page.tsx / app/admin/patients/page.tsx (already included)
+import { FloorManagementScreen } from "@/components/admin/FloorManagementScreen";
+
+export default function AdminFloorsPage() {
+  return <FloorManagementScreen />;
+}
+```
+
+> **Why a layout, not per-page providers**: each admin page having its own
+> `QueryClient` would mean navigating between them re-seeds every query's
+> `initialData` fresh, masking mutations made on a different admin page
+> until the default staleTime lapses. One shared `QueryClient` at the
+> layout level keeps the cache consistent across all three routes.
 
 `onAuthenticated` fires when the user clicks through from the post-login/
 post-register success screen. Omit it and `<AuthScreen />` just resets back
@@ -232,18 +263,19 @@ Optional demo props for Live Monitor (all default to `false`):
 ```
 
 > **If your app already has (or will have) a root-level `QueryClientProvider`**
-> — the usual TanStack Query setup — drop the per-page ones and rely on the
-> shared one instead, so the cache persists across navigation. See the note
-> at the top of `QueryProvider.tsx`.
+> — the usual TanStack Query setup — drop `QueryProvider` from `app/live-monitor/page.tsx`,
+> `LoginPageClient.tsx`, and `app/admin/layout.tsx`, and rely on the shared
+> one instead, so the cache persists across your whole app, not just within
+> each feature. See the note at the top of `QueryProvider.tsx`.
 
 > **Access control**: Admin has no route-level role gating yet — there's no
 > real session/auth wiring to gate on until the Auth screen's mock
 > `login()`/`register()` become real endpoints. Once they do, redirect
-> non-admins out of `/admin` in middleware or in the page itself.
+> non-admins out of `/admin/*` in middleware.
 
 ## The data layer: TanStack Query + axios, mock-backed for now
 
-All three screens fetch/mutate through **TanStack Query** and are ready for
+All screens fetch/mutate through **TanStack Query** and are ready for
 **axios**, but nothing hits a real network yet — every request currently
 resolves local mock data after a short delay. The pattern is the same
 across features:
@@ -253,30 +285,34 @@ across features:
 - **`lib/<feature>/api.ts`** — one async function per endpoint
   (Live Monitor: `fetchRooms`, `acknowledgeAlert`, `resolveAlert`,
   `flagFalseAlarm`, `reconnectSensor`; Auth: `login`, `register`; Admin:
-  `fetchFloors`, `createFloor`, `createRoom`, `updateRoom`, `deleteRoom`),
-  each resolving mock data today. Every function has a `// TODO(api)`
-  comment with the exact `apiClient` call to swap in — that's the *only*
-  file that needs to change once a backend exists.
+  `fetchFloors`/`createFloor`, `fetchRooms`/`createRoom`/`updateRoom`/
+  `deleteRoom`, `fetchPatients`/`createPatient`/`updatePatient`/
+  `deletePatient`), each resolving mock data today. Every function has a
+  `// TODO(api)` comment with the exact `apiClient` call to swap in —
+  that's the *only* file that needs to change once a backend exists.
 - **`lib/<feature>/queries.ts`** — the TanStack Query layer built on top of
   `api.ts`. Two different, both-valid patterns are demonstrated here:
   - Live Monitor keeps a local optimistic copy of the room roster and
     patches it directly in each mutation's `onSuccess` — right for a screen
     where sub-second UI feedback matters.
   - Admin's mutations just call `queryClient.invalidateQueries()` on
-    success and let the floors query refetch — simpler, and the right call
-    for a CRUD screen where a few hundred ms of round-trip latency is fine.
-    Its `api.ts` keeps a module-level in-memory store so creates/edits/
-    deletes actually persist for the session instead of resetting on every
-    refetch.
+    success and let the relevant query refetch — simpler, and the right
+    call for CRUD screens where a few hundred ms of round-trip latency is
+    fine. Deleting a room invalidates *both* the rooms and patients
+    queries, since it can unassign a patient. Its `api.ts` keeps
+    module-level in-memory stores so creates/edits/deletes actually
+    persist for the session instead of resetting on every refetch.
 - **`lib/<feature>/use<Feature>.ts`** — the "brain" hook wiring local state
-  to those query/mutation hooks: `useLiveMonitor`, `useAuthForm`,
-  `useAdminFloors`. Swapping any feature's `api.ts` from mock to real
-  `apiClient` calls won't require touching this wiring or any component.
+  to those query/mutation hooks: `useLiveMonitor`, `useAuthForm`, and
+  (since Admin is 3 routes, not 1 screen) `useFloorManagement` /
+  `useRoomManagement` / `usePatientManagement`. Swapping any feature's
+  `api.ts` from mock to real `apiClient` calls won't require touching this
+  wiring or any component.
 
 **What stays plain React state** (no server concept to query/mutate): Live
 Monitor's Simulate fall trigger, 1s clock tick, view/floor/search, pin list,
 and toasts; Auth's current tab/mode and raw field values before submit;
-Admin's selected floor and both modals' open/closed + form state.
+each Admin screen's own modal open/closed + form state.
 
 **Not yet wired to a query**: `historyForRisk()` in Live Monitor's
 `mock-data.ts` (the inspector's "Recent incidents" list) is still a plain
@@ -287,9 +323,9 @@ obvious future endpoint for it.
 ## Icons
 
 All icons go through `components/icons/Icon.tsx`, a `name -> lucide-react
-component` map (e.g. `<Icon name="check" />`) shared by all three screens.
-To use a lucide icon that isn't in the map yet, import it in `Icon.tsx` and
-add it to the `ICONS` object — every call site stays a plain semantic name.
+component` map (e.g. `<Icon name="check" />`) shared by every screen. To use
+a lucide icon that isn't in the map yet, import it in `Icon.tsx` and add it
+to the `ICONS` object — every call site stays a plain semantic name.
 
 ## A modeling note: sensor status has one enum, not two
 
@@ -299,9 +335,10 @@ health concept: Live Monitor calls the middle tier "degraded" ("Signal
 degraded"), Admin's mock data called it "warning". Rather than ship two
 overlapping status enums, `lib/admin/types.ts` re-exports Live Monitor's
 `SensorStatus` ("online" | "degraded" | "offline") and Admin's own
-`ADMIN_SENSOR_STATUS_META` just displays "Warning" as the label for
-"degraded" — one source of truth, two presentations (Live Monitor's
-icon+text `StatusBadge` vs. Admin's plain colored `SensorStatusPill`).
+`SENSOR_STATUS_META` (in `lib/admin/constants.ts`) just displays "Warning"
+as the label for "degraded" — one source of truth, two presentations (Live
+Monitor's icon+text `StatusBadge` vs. Admin's plain colored
+`SensorStatusPill`).
 
 ## A design-fidelity note: two slightly different input heights
 
@@ -314,13 +351,13 @@ kit later if you want one canonical input size across the app.
 
 ## Scope note
 
-Live Monitor, Auth, and Admin · Floor Management are the three screens
-actually designed and prototyped in the Claude Design session. Incidents
-has a written implementation-handoff spec
+Live Monitor, Auth, and the three Admin screens are what's actually
+designed and prototyped in the Claude Design session. Incidents has a
+written implementation-handoff spec
 (`project/FallDetect Incidents - Handoff.dc.html`) but no built UI, and
-Analytics/Settings/Users/Sensors were never scoped — Admin's sidebar shows
-Users/Sensors/Settings as "SOON"-badged and disabled (not hidden, per the
-brief's "disabled with a tooltip, never hidden silently" rule), and Live
-Monitor's Incidents/Analytics/Settings nav items show a toast rather than
-navigating, exactly like the source prototypes. Admin's "Live Monitor" nav
-item is a real link, since that route exists.
+Analytics/Settings/Users were never scoped — Admin's sidebar shows
+Users/Settings as "SOON"-badged and disabled (not hidden, per the brief's
+"disabled with a tooltip, never hidden silently" rule), and Live Monitor's
+Incidents/Analytics/Settings nav items show a toast rather than navigating,
+exactly like the source prototypes. Admin's "Live Monitor" nav item is a
+real link, since that route exists.

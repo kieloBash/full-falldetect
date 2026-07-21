@@ -16,7 +16,7 @@ export interface AddFloorModalProps {
 export function AddFloorModal({ name, onNameChange, wing, onWingChange, onCancel, onSave, saving }: AddFloorModalProps) {
   return (
     <ModalShell
-      title={COPY.floorModalTitle}
+      title={COPY.floor.modalTitle}
       onClose={onCancel}
       footer={
         <>
@@ -33,7 +33,7 @@ export function AddFloorModal({ name, onNameChange, wing, onWingChange, onCancel
             disabled={saving}
             className={`h-10 rounded-lg px-[18px] text-[13.5px] font-semibold text-white ${saving ? "cursor-wait bg-teal-700" : "cursor-pointer bg-teal-600 hover:bg-teal-700"}`}
           >
-            {COPY.addFloor}
+            {COPY.floor.addFloor}
           </button>
         </>
       }

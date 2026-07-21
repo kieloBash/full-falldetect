@@ -36,11 +36,11 @@ export function AdminScreen() {
           <FloorManagementToolbar floorCount={admin.floors.length} onAddFloor={admin.openAddFloorModal} />
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <FloorList floors={admin.floors} selectedFloorId={admin.selectedFloor?.id ?? null} onSelectFloor={admin.selectFloor} />
+            <FloorList floors={admin.floors} floorCards={[]} selectedFloorId={admin.selectedFloor?.id ?? null} onSelectFloor={admin.selectFloor} />
 
             {admin.selectedFloor && (
               <RoomTable
-                floor={admin.selectedFloor}
+                floor={admin.selectedFloor as any}
                 onAddRoom={admin.openAddRoomModal}
                 onEditRoom={admin.openEditRoomModal}
                 onRemoveRoom={admin.removeRoom}
@@ -64,6 +64,7 @@ export function AdminScreen() {
 
       {admin.roomModalOpen && (
         <AddEditRoomModal
+          floors={admin.floors}
           values={admin.roomForm}
           onFieldChange={admin.updateRoomFormField}
           isEditing={admin.isEditingRoom}

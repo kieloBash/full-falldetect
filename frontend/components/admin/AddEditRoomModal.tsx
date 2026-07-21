@@ -1,11 +1,12 @@
-import { COPY, SENSOR_STATUS_OPTIONS } from "@/lib/admin/constants";
-import type { RoomFormValues } from "@/lib/admin/types";
+import { COPY } from "@/lib/admin/constants";
+import type { Floor, RoomFormValues } from "@/lib/admin/types";
 import { ModalShell } from "./ModalShell";
 import { ModalSelectField } from "./fields/ModalSelectField";
 import { ModalTextField } from "./fields/ModalTextField";
 
 export interface AddEditRoomModalProps {
   values: RoomFormValues;
+  floors: Floor[];
   onFieldChange: <K extends keyof RoomFormValues>(key: K, value: RoomFormValues[K]) => void;
   isEditing: boolean;
   onCancel: () => void;
@@ -13,11 +14,16 @@ export interface AddEditRoomModalProps {
   saving: boolean;
 }
 
-/** Add/edit room modal: room number + sensor id, optional resident, sensor status. */
-export function AddEditRoomModal({ values, onFieldChange, isEditing, onCancel, onSave, saving }: AddEditRoomModalProps) {
+/**
+ * Add/edit room modal: room number + sensor/device id, and which floor it
+ * belongs to. No resident or sensor-status fields — patient assignment
+ * happens from Patient Management, and new rooms always start "Online"
+ * (status isn't editable from this screen).
+ */
+export function AddEditRoomModal({ values, floors, onFieldChange, isEditing, onCancel, onSave, saving }: AddEditRoomModalProps) {
   return (
     <ModalShell
-      title={isEditing ? COPY.roomModalTitleEdit : COPY.roomModalTitleAdd}
+      title={isEditing ? COPY.room.modalTitleEdit : COPY.room.modalTitleAdd}
       widthClassName="w-[440px]"
       onClose={onCancel}
       footer={
@@ -35,7 +41,7 @@ export function AddEditRoomModal({ values, onFieldChange, isEditing, onCancel, o
             disabled={saving}
             className={`h-10 rounded-lg px-[18px] text-[13.5px] font-semibold text-white ${saving ? "cursor-wait bg-teal-700" : "cursor-pointer bg-teal-600 hover:bg-teal-700"}`}
           >
-            {isEditing ? COPY.roomModalSaveEdit : COPY.roomModalSaveAdd}
+            {isEditing ? COPY.room.modalSaveEdit : COPY.room.modalSaveAdd}
           </button>
         </>
       }
@@ -44,25 +50,18 @@ export function AddEditRoomModal({ values, onFieldChange, isEditing, onCancel, o
         <ModalTextField id="room-number" label="Room number" value={values.room} onChange={(v) => onFieldChange("room", v)} placeholder="204" />
         <ModalTextField
           id="room-sensor-id"
-          label="Sensor ID"
+          label="Sensor / device ID"
           value={values.sensorId}
           onChange={(v) => onFieldChange("sensorId", v)}
           placeholder="SNR-204"
         />
       </div>
-      <ModalTextField
-        id="room-resident"
-        label="Resident (optional)"
-        value={values.resident}
-        onChange={(v) => onFieldChange("resident", v)}
-        placeholder="Leave blank if vacant"
-      />
       <ModalSelectField
-        id="room-status"
-        label="Sensor status"
-        value={values.status}
-        options={SENSOR_STATUS_OPTIONS}
-        onChange={(v) => onFieldChange("status", v)}
+        id="room-floor"
+        label="Floor"
+        value={values.floorId}
+        options={floors.map((f) => ({ value: f.id, label: f.name }))}
+        onChange={(v) => onFieldChange("floorId", v)}
       />
     </ModalShell>
   );

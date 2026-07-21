@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
 import { Prisma } from "@/app/generated/prisma/client";
-import { prisma } from "@/lib/db/prisma";
+import type { AuthResult } from "@/lib/auth/api";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
-import type { AuthResult } from "@/lib/auth/api";
+import { prisma } from "@/lib/db/prisma";
+import { NextResponse } from "next/server";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -45,6 +45,6 @@ export async function POST(req: Request) {
     true
   );
 
-  const result: AuthResult = { userId: user.id, email: user.email };
+  const result: AuthResult = { userId: user.id, email: user.email, role: user.role };
   return NextResponse.json(result, { status: 201 });
 }
