@@ -22,7 +22,7 @@ export function AuthScreen(props: AuthScreenProps) {
   const auth = useAuthForm(props);
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-8 tabular-nums">
+    <div className="flex min-h-screen items-center justify-center p-8 tabular-nums bg-slate-200">
       <div className="grid w-[960px] max-w-full min-h-[600px] grid-cols-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,.08)]">
         <BrandPanel />
 

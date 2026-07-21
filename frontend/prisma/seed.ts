@@ -49,7 +49,7 @@ async function main() {
   // ─── Facility + floors ───────────────────────────────────────────────
   const facility = await prisma.facility.create({
     data: {
-      name: 'Maplewood Senior Care',
+      name: 'Fall Detect Clinic',
       timezone: 'America/New_York',
       floors: {
         create: [{ label: '2' }, { label: '3' }],

@@ -74,9 +74,8 @@ export function InspectorRoomDetail({
 
         {(state === "active" || state === "acknowledged") && (
           <div
-            className={`mt-4 rounded-[10px] border p-[14px] ${
-              state === "active" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
-            }`}
+            className={`mt-4 rounded-[10px] border p-[14px] ${state === "active" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+              }`}
           >
             <div className="text-[11px] font-medium uppercase tracking-[.05em] text-slate-600">
               {state === "active" ? "Fall detected · elapsed" : "Responding · elapsed"}
@@ -169,9 +168,8 @@ export function InspectorRoomDetail({
         <button
           type="button"
           onClick={onTogglePin}
-          className={`mt-[10px] flex h-10 w-full items-center justify-center gap-2 rounded-[9px] text-[13px] font-semibold ${
-            pinned ? "border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-          }`}
+          className={`mt-[10px] flex h-10 w-full items-center justify-center gap-2 rounded-[9px] text-[13px] font-semibold ${pinned ? "border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
         >
           <Icon name="pin" size={15} fill={pinned ? "currentColor" : "none"} />
           {pinned ? "Unpin from camera wall" : "Pin to camera wall"}

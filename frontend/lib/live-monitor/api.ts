@@ -1,21 +1,23 @@
-import { buildRooms } from "./mock-data";
-import type { Room } from "./types";
+import type { ActivityItem, Room } from "./types";
 
 /**
- * Live Monitor API layer. Function signatures mirror the REST endpoints
- * described in the Incidents handoff doc's "API dependencies" section, so
- * this file — not the components or the hook — is the only thing that
- * changes when a real backend exists. Every function currently resolves
- * mock data instead of calling out; see the `TODO(api)` on each for the
- * axios call it becomes (import `apiClient` from "@/lib/api/client").
+ * Live Monitor API layer. Signatures are unchanged from the mock version —
+ * the hook and components import exactly the same names — but each now calls
+ * a real route handler under `app/api/*` that talks to Prisma. The server
+ * projects the normalized DB rows back into the flat `Room` shape (see
+ * `lib/live-monitor-server/projection.ts`), so the client still receives the
+ * same objects it always did.
  */
 
-export async function fetchRooms(): Promise<Room[]> {
-  // TODO(api): const { data } = await apiClient.get<Room[]>("/monitor");
-  //            return data;
-  // Real version also wants a realtime subscription (WebSocket/SSE) for the
-  // alert stream so new incidents appear without polling.
-  return buildRooms();
+async function json<T>(res: Response): Promise<T> {
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((data && data.error) || "Request failed.");
+  return data as T;
+}
+
+export async function fetchRooms(floor?: string): Promise<Room[]> {
+  const qs = floor ? `?floor=${encodeURIComponent(floor)}` : "";
+  return json<Room[]>(await fetch(`/api/monitor${qs}`));
 }
 
 export interface AcknowledgeResult {
@@ -23,24 +25,66 @@ export interface AcknowledgeResult {
 }
 
 export async function acknowledgeAlert(roomId: string): Promise<AcknowledgeResult> {
-  // TODO(api): const { data } = await apiClient.post(`/alerts/${roomId}/acknowledge`);
-  //            return data;
-  void roomId;
-  return { acknowledgedBy: "David Okafor" };
+  return json<AcknowledgeResult>(await fetch(`/api/alerts/${roomId}/acknowledge`, { method: "POST" }));
 }
 
 export async function resolveAlert(roomId: string): Promise<void> {
-  // TODO(api): await apiClient.post(`/alerts/${roomId}/resolve`);
-  void roomId;
+  await json(await fetch(`/api/alerts/${roomId}/resolve`, { method: "POST" }));
 }
 
 export async function flagFalseAlarm(roomId: string, reason: string): Promise<void> {
-  // TODO(api): await apiClient.post(`/alerts/${roomId}/false-alarm`, { reason });
-  void roomId;
-  void reason;
+  await json(
+    await fetch(`/api/alerts/${roomId}/false-alarm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    })
+  );
 }
 
 export async function reconnectSensor(roomId: string): Promise<void> {
-  // TODO(api): await apiClient.post(`/sensors/${roomId}/reconnect`);
-  void roomId;
+  await json(await fetch(`/api/sensors/${roomId}/reconnect`, { method: "POST" }));
+}
+
+export interface SimulateFallResult {
+  roomId: string;
+  incidentId: string;
+}
+
+/** Creates a real ACTIVE incident. `roomId` targets a room; otherwise the
+ *  server picks an eligible room on `floor`. */
+export async function createAlert(input: { roomId?: string; floor?: string }): Promise<SimulateFallResult> {
+  return json<SimulateFallResult>(
+    await fetch(`/api/alerts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    })
+  );
+}
+
+/* ── Pinned rooms (per-user) ──────────────────────────────────────────── */
+
+export async function fetchPinned(): Promise<string[]> {
+  return json<string[]>(await fetch(`/api/pinned`));
+}
+
+export async function pinRoom(roomId: string): Promise<void> {
+  await json(
+    await fetch(`/api/pinned`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId }),
+    })
+  );
+}
+
+export async function unpinRoom(roomId: string): Promise<void> {
+  await json(await fetch(`/api/pinned/${roomId}`, { method: "DELETE" }));
+}
+
+/* ── Activity feed (facility-wide) ────────────────────────────────────── */
+
+export async function fetchActivity(limit = 12): Promise<ActivityItem[]> {
+  return json<ActivityItem[]>(await fetch(`/api/activity?limit=${limit}`));
 }

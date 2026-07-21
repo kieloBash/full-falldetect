@@ -51,20 +51,20 @@ export function LoginForm({ form, onSwitchToRegister }: LoginFormProps) {
         <SubmitButton busy={form.busy}>Sign in</SubmitButton>
       </form>
 
-      <div className="mt-[22px] flex items-center gap-3 text-slate-300">
+      {/* <div className="mt-[22px] flex items-center gap-3 text-slate-300">
         <div className="h-px flex-1 bg-slate-200" />
         <span className="text-[11.5px] font-medium text-slate-400">or</span>
         <div className="h-px flex-1 bg-slate-200" />
       </div>
-
-      <button
+ */}
+      {/* <button
         type="button"
         onClick={form.onSsoLogin}
         className="mt-4 flex h-11 items-center justify-center gap-[9px] rounded-[9px] border border-slate-200 bg-white text-[13.5px] font-semibold text-slate-700 hover:bg-slate-50"
       >
         <Icon name="lock" size={16} />
         {COPY.ssoLabel}
-      </button>
+      </button> */}
 
       <div className="flex-1" />
 

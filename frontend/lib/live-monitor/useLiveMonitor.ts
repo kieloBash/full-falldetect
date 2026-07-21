@@ -1,73 +1,73 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { INITIAL_ACTIVITY, INITIAL_PINNED_ROOM_IDS } from "./mock-data";
 import {
   useAcknowledgeMutation,
+  useActivityQuery,
   useFlagFalseAlarmMutation,
+  usePinMutation,
+  usePinnedQuery,
   useReconnectSensorMutation,
   useResolveMutation,
   useRoomsQuery,
+  useSimulateFallMutation,
+  useUnpinMutation,
 } from "./queries";
 import type { ActivityItem, FloorId, Room, Toast, ViewMode } from "./types";
-import { effState, formatClockTime } from "./utils";
+import { effState } from "./utils";
 
 export interface UseLiveMonitorOptions {
-  /** Demo affordance: opens with Room 201 already in an active fall. */
+  /** Demo affordance: opens with a simulated active fall on Room 201. */
   startWithActiveFall?: boolean;
   muteSound?: boolean;
   reduceMotion?: boolean;
 }
 
 /**
- * Owns every piece of state and every mutation for the Live Monitor screen.
- * Pulled out of the page component so the render tree stays declarative —
- * `<LiveMonitor />` just wires this hook's return value to presentational
- * components.
+ * Owns state + mutations for the Live Monitor screen. The DB is the source of
+ * truth for everything durable:
+ *  - rooms come from `useRoomsQuery(floor)` (GET /api/monitor)
+ *  - pinned rooms come from `usePinnedQuery` (GET /api/pinned), toggled via
+ *    pin/unpin mutations
+ *  - the activity feed comes from `useActivityQuery` (GET /api/activity);
+ *    the server writes each entry when an action's route runs, so the client
+ *    no longer appends activity locally — it just invalidates and refetches.
  *
- * The room roster comes from `useRoomsQuery()` (TanStack Query, currently
- * mock-backed — see `lib/live-monitor/api.ts`) and is copied into local
- * state on mount. From there, response actions (acknowledge/resolve/false
- * alarm/reconnect) go through `useMutation` hooks from `./queries`; each
- * mutation's `onSuccess` applies the same local patch this screen always
- * used, so today's mock swap-in is a no-op for the UI and a one-file change
- * (`api.ts`) once a backend exists. Local-only concerns that have no server
- * counterpart — the demo's Simulate fall trigger, timers, toasts, pin
- * state, view/floor/search — stay as plain React state.
+ * Response actions invalidate rooms + activity on success ("refetch after
+ * each action"). Only genuinely ephemeral concerns stay as React state:
+ * view/floor/search/mute/toasts/camera-modal/false-alarm-dialog and the 1s
+ * timer that drives elapsed counters.
  */
 export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   const { startWithActiveFall = false, muteSound = false, reduceMotion = false } = options;
 
-  const roomsQuery = useRoomsQuery();
-  const [rooms, setRooms] = useState<Room[]>(roomsQuery.data);
   const [view, setView] = useState<ViewMode>("grid");
   const [floor, setFloor] = useState<FloorId>("2");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [muted, setMuted] = useState(muteSound);
-  const [pinned, setPinned] = useState<string[]>(INITIAL_PINNED_ROOM_IDS);
   const [faRoomId, setFaRoomId] = useState<string | null>(null);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [activity, setActivity] = useState<ActivityItem[]>(INITIAL_ACTIVITY);
 
   const uid = useRef(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const roomsQuery = useRoomsQuery(floor);
+  const rooms = useMemo<Room[]>(() => roomsQuery.data ?? [], [roomsQuery.data]);
+
+  const pinnedQuery = usePinnedQuery();
+  const pinned = useMemo<string[]>(() => pinnedQuery.data ?? [], [pinnedQuery.data]);
+
+  const activityQuery = useActivityQuery();
+  const activity = useMemo<ActivityItem[]>(() => activityQuery.data ?? [], [activityQuery.data]);
+
   /* 1s tick drives live elapsed timers and the camera-feed timestamp. */
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, []);
-
-  const patchRoom = useCallback((id: string, patch: Partial<Room>) => {
-    setRooms((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  }, []);
-
-  const addActivity = useCallback((text: string, color: string) => {
-    setActivity((a) => [{ id: `ac${++uid.current}`, text, when: formatClockTime(), color }, ...a].slice(0, 12));
   }, []);
 
   const toast = useCallback((text: string, dot: string = "bg-teal-600") => {
@@ -104,24 +104,21 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
 
   /* ── Actions ────────────────────────────────────────────────────────── */
 
+  const simulateFallMutation = useSimulateFallMutation();
   const simulateFall = useCallback(
     (forceId?: string) => {
-      setRooms((rs) => {
-        const candidates = rs.filter((r) => r.floor === floor && r.alertState === "idle" && r.sensorStatus !== "offline");
-        const room = forceId ? rs.find((r) => r.id === forceId) : candidates[Math.floor(Math.random() * candidates.length)];
-        if (!room) {
-          toast("No available rooms to simulate", "bg-amber-600");
-          return rs;
+      simulateFallMutation.mutate(
+        { roomId: forceId, floor },
+        {
+          onSuccess: ({ roomId }) => {
+            setSelectedId(roomId);
+            beep();
+          },
+          onError: (e) => toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600"),
         }
-        setSelectedId(room.id);
-        beep();
-        addActivity(`Fall detected in Room ${room.label}`, "bg-red-600");
-        return rs.map((r) =>
-          r.id === room.id ? { ...r, alertState: "active", startedAt: Date.now(), acknowledgedBy: null, falseAlarmReason: null } : r
-        );
-      });
+      );
     },
-    [floor, beep, addActivity, toast]
+    [floor, simulateFallMutation, beep, toast]
   );
 
   const acknowledgeMutation = useAcknowledgeMutation();
@@ -129,16 +126,12 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     (id: string) => {
       const r = rooms.find((x) => x.id === id);
       if (!r || r.alertState !== "active") return;
-      const secs = r.startedAt ? Math.floor((Date.now() - r.startedAt) / 1000) : 0;
       acknowledgeMutation.mutate(id, {
-        onSuccess: ({ acknowledgedBy }) => {
-          setRooms((rs) => rs.map((x) => (x.id === id ? { ...x, alertState: "acknowledged", acknowledgedBy } : x)));
-          addActivity(`David O. acknowledged Room ${r.label} · ${secs}s`, "bg-amber-600");
-          toast(`Acknowledged Room ${r.label} — responding`, "bg-amber-600");
-        },
+        onSuccess: () => toast(`Acknowledged Room ${r.label} — responding`, "bg-amber-600"),
+        onError: (e) => toast(e instanceof Error ? e.message : "Acknowledge failed", "bg-amber-600"),
       });
     },
-    [rooms, acknowledgeMutation, addActivity, toast]
+    [rooms, acknowledgeMutation, toast]
   );
 
   const resolveMutation = useResolveMutation();
@@ -146,17 +139,11 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     (id: string) => {
       const r = rooms.find((x) => x.id === id);
       resolveMutation.mutate(id, {
-        onSuccess: () => {
-          patchRoom(id, { alertState: "resolved" });
-          if (r) {
-            addActivity(`Room ${r.label} resolved — no injury`, "bg-green-600");
-            toast(`Room ${r.label} resolved`, "bg-green-600");
-          }
-          setTimeout(() => patchRoom(id, { alertState: "idle", startedAt: null, acknowledgedBy: null }), 2600);
-        },
+        onSuccess: () => r && toast(`Room ${r.label} resolved`, "bg-green-600"),
+        onError: (e) => toast(e instanceof Error ? e.message : "Resolve failed", "bg-green-600"),
       });
     },
-    [rooms, resolveMutation, patchRoom, addActivity, toast]
+    [rooms, resolveMutation, toast]
   );
 
   const flagFalseAlarmMutation = useFlagFalseAlarmMutation();
@@ -169,18 +156,14 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
         { roomId: id, reason },
         {
           onSuccess: () => {
-            patchRoom(id, { alertState: "falsealarm", falseAlarmReason: reason });
             setFaRoomId(null);
-            if (r) {
-              addActivity(`Flagged false alarm — ${reason.toLowerCase()} · Room ${r.label}`, "bg-slate-400");
-              toast(`Room ${r.label} flagged false alarm`, "bg-slate-400");
-            }
-            setTimeout(() => patchRoom(id, { alertState: "idle", startedAt: null, acknowledgedBy: null, falseAlarmReason: null }), 3800);
+            if (r) toast(`Room ${r.label} flagged false alarm`, "bg-slate-400");
           },
+          onError: (e) => toast(e instanceof Error ? e.message : "False alarm failed", "bg-slate-400"),
         }
       );
     },
-    [faRoomId, rooms, flagFalseAlarmMutation, patchRoom, addActivity, toast]
+    [faRoomId, rooms, flagFalseAlarmMutation, toast]
   );
 
   const cancelFalseAlarm = useCallback(() => setFaRoomId(null), []);
@@ -190,21 +173,22 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     (id: string) => {
       const r = rooms.find((x) => x.id === id);
       reconnectSensorMutation.mutate(id, {
-        onSuccess: () => {
-          patchRoom(id, { sensorStatus: "online" });
-          if (r) {
-            addActivity(`Sensor ${r.label} reconnected — back online`, "bg-green-600");
-            toast(`Room ${r.label} sensor back online`, "bg-green-600");
-          }
-        },
+        onSuccess: () => r && toast(`Room ${r.label} sensor back online`, "bg-green-600"),
+        onError: (e) => toast(e instanceof Error ? e.message : "Reconnect failed", "bg-green-600"),
       });
     },
-    [rooms, reconnectSensorMutation, patchRoom, addActivity, toast]
+    [rooms, reconnectSensorMutation, toast]
   );
 
-  const togglePin = useCallback((id: string) => {
-    setPinned((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  }, []);
+  const pinMutation = usePinMutation();
+  const unpinMutation = useUnpinMutation();
+  const togglePin = useCallback(
+    (id: string) => {
+      if (pinned.includes(id)) unpinMutation.mutate(id);
+      else pinMutation.mutate(id);
+    },
+    [pinned, pinMutation, unpinMutation]
+  );
 
   const toggleMuted = useCallback(() => setMuted((m) => !m), []);
   const clearSearch = useCallback(() => setQuery(""), []);
@@ -219,7 +203,6 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     setSelectedId(null);
   }, []);
 
-  /** Jumps to a specific room, switching floor first if it lives on the other one (used by the pinned-residents list). */
   const focusRoom = useCallback((room: Room) => {
     setFloor(room.floor);
     setSelectedId(room.id);
@@ -256,14 +239,15 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     return () => window.removeEventListener("keydown", onKey);
   }, [rooms, selectedId, faRoomId, liveId, acknowledge]);
 
-  /* Optional prop: open mid-incident for demos/storybook-style embeds. */
+  /* Optional prop: open mid-incident for demos. Fires once rooms have loaded. */
+  const didAutoSim = useRef(false);
   useEffect(() => {
-    if (!startWithActiveFall) return;
+    if (!startWithActiveFall || didAutoSim.current || rooms.length === 0) return;
+    didAutoSim.current = true;
     const t = setTimeout(() => simulateFall("201"), 400);
     return () => clearTimeout(t);
-    // Intentionally runs once on mount only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [rooms.length, startWithActiveFall]);
 
   /* ── Derived state ──────────────────────────────────────────────────── */
 
@@ -317,6 +301,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     toasts,
     activity,
     searchInputRef,
+    roomsLoading: roomsQuery.isPending,
 
     // derived
     roomsOnFloor,
