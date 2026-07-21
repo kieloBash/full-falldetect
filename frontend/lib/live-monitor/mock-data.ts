@@ -1,4 +1,6 @@
-import type { FloorId, Room } from "./types";
+import { BADGE_META, BADGE_VARIANT_BY_STATE } from "./constants";
+import type { EffectiveState, FloorId, History, Room } from "./types";
+import { formatDateHistory, formatHistoryMessage } from "./utils";
 
 type RoomSeed = readonly [id: string, resident: string, risk: Room["risk"], sensorStatus: Room["sensorStatus"], zone: string];
 
@@ -53,6 +55,7 @@ function seedToRoom([id, resident, risk, sensorStatus, zone]: RoomSeed, floor: F
     startedAt: null,
     acknowledgedBy: null,
     falseAlarmReason: null,
+    history: []
   };
 }
 
@@ -85,15 +88,16 @@ interface HistoryEntry {
  * for demo purposes.
  * TODO(api): replace with `GET /residents/{id}/incidents?limit=`.
  */
-export function historyForRisk(risk: Room["risk"]): HistoryEntry[] {
-  if (risk === "high") {
-    return [
-      { text: "Fall — minor, no injury", when: "Jun 28 · 2:14 AM", color: "bg-green-600" },
-      { text: "False alarm — resident sat down", when: "Jun 19 · 9:40 PM", color: "bg-slate-400" },
-    ];
-  }
-  if (risk === "medium") {
-    return [{ text: "False alarm — sensor glitch", when: "Jun 22 · 6:31 PM", color: "bg-slate-400" }];
-  }
-  return [];
+export function historyForRisk(history: History[]): HistoryEntry[] {
+
+  return history.map((h) => {
+    const badge = h.state.split("_").join("").toLowerCase() as EffectiveState;
+    const color = BADGE_META[BADGE_VARIANT_BY_STATE[badge]].bgClass
+
+    return {
+      text: formatHistoryMessage(h),
+      when: formatDateHistory(h.detectedAt as string),
+      color: color,
+    }
+  })
 }

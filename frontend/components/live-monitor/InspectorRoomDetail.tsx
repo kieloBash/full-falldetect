@@ -37,7 +37,9 @@ export function InspectorRoomDetail({
   const risk = RISK_META[room.risk];
   const sensor = SENSOR_META[room.sensorStatus];
   const elapsed = elapsedSeconds(room.startedAt, now);
-  const history = historyForRisk(room.risk);
+  const history = historyForRisk(room.history);
+
+  console.log(room.history)
 
   return (
     <div>

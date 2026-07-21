@@ -1,5 +1,6 @@
 import { BADGE_VARIANT_BY_STATE } from "./constants";
-import type { BadgeVariant, EffectiveState, Room } from "./types";
+import type { BadgeVariant, EffectiveState, History, Room } from "./types";
+import { formatInTimeZone } from "date-fns-tz";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -23,6 +24,30 @@ export function formatClockTime(date: Date = new Date()): string {
   const ap = h >= 12 ? "PM" : "AM";
   h = h % 12 || 12;
   return `${h}:${m} ${ap}`;
+}
+
+
+export function formatDateHistory(iso: string): string {
+  return formatInTimeZone(iso, "Asia/Manila", "MMM d · h:mm a");
+}
+
+export function formatHistoryMessage(h: History): string {
+  const label = h.state.split("_").join("").toLowerCase() as EffectiveState ?? h.state;
+
+  const parts: string[] = [];
+
+  if (h.responder) {
+    parts.push(`${h.responder.firstName} ${h.responder.lastName}`);
+  }
+
+  if (h.falseAlarmReason) {
+    parts.push(h.falseAlarmReason);
+  }
+
+  const detail = parts.join(" — ");
+  const message = detail ? `${label} — ${detail}` : label;
+
+  return `${message}`;
 }
 
 /**

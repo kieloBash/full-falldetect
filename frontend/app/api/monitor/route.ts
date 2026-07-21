@@ -11,6 +11,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const floor = searchParams.get("floor");
 
+  console.log(floor)
+
   const rows = (await prisma.room.findMany({
     where: {
       floor: { facilityId: auth.claims.facilityId, ...(floor ? { label: floor } : {}) },

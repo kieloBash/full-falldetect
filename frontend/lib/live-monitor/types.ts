@@ -26,6 +26,17 @@ export interface Room {
   startedAt: number | null;
   acknowledgedBy: string | null;
   falseAlarmReason: string | null;
+  history: History[]
+}
+
+export interface History {
+  state: string;
+  detectedAt: string | Date;
+  falseAlarmReason: string | null;
+  responder: {
+    firstName: string,
+    lastName: string,
+  } | null
 }
 
 export interface ActivityItem {
