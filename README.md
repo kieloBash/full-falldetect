@@ -1,6 +1,6 @@
 ## Roadmap / TODOs
 
-### 1. Floor Selection Dropdown (Staff View)
+### 1. Floor Selection Dropdown (Staff View) [DONE]
 Configure a dropdown so staff can filter the room view by floor.
 
 **Components**
@@ -8,7 +8,7 @@ Configure a dropdown so staff can filter the room view by floor.
 - Wire selection into `RoomGrid` filtering (client-side filter or `?floor=` refetch)
 
 **API endpoints**
-- `GET /api/floors` — list available floors (public to authenticated staff; read-only here)
+- `GET /api/floors/assigned` — list available floors (public to authenticated staff; read-only here)
 
 **Notes**
 - Creating/editing floors lives on the admin side (see #5). This is the read-only consumer of that data.
