@@ -43,11 +43,11 @@ export function TopBar({
         <span className="text-base font-bold tracking-tight text-slate-900">{COPY.productName}</span>
       </div>
 
-      <div className="flex items-center gap-[7px] text-[13px] text-slate-400">
+      {/* <div className="flex items-center gap-[7px] text-[13px] text-slate-400">
         <span>{COPY.breadcrumbBase}</span>
         <span>&rsaquo;</span>
         <span className="font-medium text-slate-600">Floor {floor}</span>
-      </div>
+      </div> */}
 
       <div className="relative mx-auto max-w-[420px] flex-1">
         <Icon name="search" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
