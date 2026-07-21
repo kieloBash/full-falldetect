@@ -73,7 +73,7 @@ Restricted, admin-only area for facility setup and account management. Every rou
 - `PATCH  /api/admin/nurses/:id` — update role / deactivate
 - `DELETE /api/admin/nurses/:id` — remove account
 
-#### 5b. Floor Management
+#### 5b. Floor Management [DONE]
 **Components**
 - `FloorTable` — list existing floors with room counts
 - `AddFloorDialog` — form for floor name/number, optional wing/label
@@ -85,7 +85,7 @@ Restricted, admin-only area for facility setup and account management. Every rou
 - `PATCH  /api/admin/floors/:id` — rename / archive
 - `DELETE /api/admin/floors/:id` — remove (guard against deleting a floor that still has rooms)
 
-#### 5c. Room Management
+#### 5c. Room Management [DONE]
 **Components**
 - `RoomTable` — list rooms with floor, assigned patient, sensor mapping
 - `AddRoomDialog` — form for room number, floor (populated from floors), sensor/device id
@@ -97,7 +97,7 @@ Restricted, admin-only area for facility setup and account management. Every rou
 - `PATCH  /api/admin/rooms/:id` — update floor / sensor mapping
 - `DELETE /api/admin/rooms/:id` — remove a room
 
-#### 5d. Patient Management
+#### 5d. Patient Management [DONE]
 **Components**
 - `PatientTable` — list patients with current room assignment
 - `AddPatientDialog` — form for patient name, room assignment, notes
