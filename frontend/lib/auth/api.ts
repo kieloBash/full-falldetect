@@ -1,3 +1,4 @@
+import { User } from "@/app/generated/prisma/client";
 import type { FacilityOption, LoginFormValues, RegisterFormValues } from "./types";
 
 /**
@@ -41,3 +42,10 @@ export async function fetchFacilities(): Promise<FacilityOption[]> {
   if (!res.ok) throw new Error("Could not load facilities.");
   return (await res.json()) as FacilityOption[];
 }
+
+export async function fetchProfileMe(): Promise<User> {
+  const res = await fetch("/api/me");
+  if (!res.ok) throw new Error("Could not load user profile.");
+  return (await res.json());
+}
+

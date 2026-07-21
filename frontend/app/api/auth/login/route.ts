@@ -12,7 +12,6 @@ export async function POST(req: Request) {
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
-  console.log(user)
 
   // Same response whether the user is missing or the password is wrong —
   // never leak which emails have accounts.

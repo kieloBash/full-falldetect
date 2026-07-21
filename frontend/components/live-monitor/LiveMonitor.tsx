@@ -47,9 +47,6 @@ export function LiveMonitor(props: LiveMonitorProps) {
         totalCount={m.roomsOnFloor.length}
         anySensorDown={m.anySensorDown}
       />
-      <button onClick={() => {
-        logoutMutate.mutate()
-      }}>logout</button>
 
       <ActiveAlertBanner activeCount={m.activeCount} reducedMotion={m.reducedMotion} onJumpToAlert={m.jumpToFirstActiveAlert} />
 

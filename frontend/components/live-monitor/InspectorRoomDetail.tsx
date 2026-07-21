@@ -39,8 +39,6 @@ export function InspectorRoomDetail({
   const elapsed = elapsedSeconds(room.startedAt, now);
   const history = historyForRisk(room.history);
 
-  console.log(room.history)
-
   return (
     <div>
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">

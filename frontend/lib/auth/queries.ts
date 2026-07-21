@@ -4,6 +4,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import * as api from "./api";
 
+export const authKeys = {
+  me: ["me"] as const,
+  facilities: ["facilities"] as const
+};
+
 export function useLoginMutation() {
   return useMutation({ mutationFn: api.login });
 }
@@ -28,8 +33,16 @@ export function useLogoutMutation() {
  */
 export function useFacilities() {
   return useQuery({
-    queryKey: ["facilities"],
+    queryKey: authKeys.facilities,
     queryFn: api.fetchFacilities,
     staleTime: 1000 * 60 * 60,
+  });
+}
+
+export function useProfileMe() {
+  return useQuery({
+    queryKey: authKeys.me,
+    queryFn: () => api.fetchProfileMe(),
+    staleTime: 5_000,
   });
 }

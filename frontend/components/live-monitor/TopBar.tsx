@@ -1,9 +1,11 @@
 "use client";
 
-import type { RefObject } from "react";
+import { Icon } from "@/components/icons/Icon";
+import { useProfileMe } from "@/lib/auth/queries";
 import { COPY } from "@/lib/live-monitor/constants";
 import type { FloorId } from "@/lib/live-monitor/types";
-import { Icon } from "@/components/icons/Icon";
+import type { RefObject } from "react";
+import { ProfileDropdown } from "../ui/profile-dropdown";
 
 export interface TopBarProps {
   floor: FloorId;
@@ -31,6 +33,7 @@ export function TopBar({
   totalCount,
   anySensorDown,
 }: TopBarProps) {
+
   return (
     <header className="z-30 flex h-[60px] flex-none items-center gap-5 border-b border-slate-200 bg-white px-5">
       <div className="flex items-center gap-[10px]">
@@ -95,7 +98,7 @@ export function TopBar({
           <Icon name="bell" size={17} />
         </button>
 
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-xs font-semibold text-white">DO</div>
+        <ProfileDropdown />
       </div>
     </header>
   );
