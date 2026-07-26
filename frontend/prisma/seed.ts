@@ -64,9 +64,9 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       facilityId: facility.id,
-      firstName: 'Dana',
-      lastName: 'Okafor',
-      email: 'dana.okafor@maplewood.example',
+      firstName: 'Admin',
+      lastName: 'Fall',
+      email: 'admin@fall.example',
       passwordHash: PW,
       role: UserRole.ADMIN,
       emailVerifiedAt: day(120),
@@ -76,9 +76,9 @@ async function main() {
   const nurseAda = await prisma.user.create({
     data: {
       facilityId: facility.id,
-      firstName: 'Ada',
-      lastName: 'Reyes',
-      email: 'ada.reyes@maplewood.example',
+      firstName: 'Nurse',
+      lastName: '1',
+      email: 'nurse1@fall.example',
       passwordHash: PW,
       role: UserRole.NURSE,
       emailVerifiedAt: day(90),
