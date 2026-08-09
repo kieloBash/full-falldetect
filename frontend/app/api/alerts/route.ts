@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireSession } from "@/lib/live-monitor-server/require-session";
+import { NextResponse } from "next/server";
 
 /**
  * POST /api/alerts — create a new ACTIVE incident (the "Simulate fall"
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   if ("error" in auth) return auth.error;
   const { facilityId } = auth.claims;
   const body = await req.json().catch(() => ({}));
+  console.log(body)
   const { roomId, floor } = body as { roomId?: string; floor?: string };
 
   let targetRoomId = roomId;
@@ -33,9 +34,11 @@ export async function POST(req: Request) {
   }
 
   const room = await prisma.room.findFirst({
-    where: { id: targetRoomId, floor: { facilityId } },
+    // where: { id: targetRoomId, floor: { facilityId } },
+    where: { id: targetRoomId },
     select: { id: true, label: true, residentId: true },
   });
+
   if (!room || !room.residentId) {
     return NextResponse.json({ error: "Room not found or has no resident." }, { status: 404 });
   }
@@ -43,6 +46,7 @@ export async function POST(req: Request) {
   const existingOpen = await prisma.incident.findFirst({
     where: { roomId: room.id, state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
   });
+
   if (existingOpen) {
     return NextResponse.json({ error: "Room already has an open incident." }, { status: 409 });
   }

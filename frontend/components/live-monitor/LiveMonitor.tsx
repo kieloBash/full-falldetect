@@ -23,13 +23,11 @@ export type LiveMonitorProps = UseLiveMonitorOptions;
  * fall-response lifecycle — Acknowledge → Mark resolved, or Flag false alarm
  * with a required reason.
  *
- * Fully self-contained client component: render `<LiveMonitor />` and it
- * owns its own state via `useLiveMonitor`. Swap the mock data layer for a
- * real one by editing `lib/live-monitor/mock-data.ts` and the `TODO(api)`
- * markers in `lib/live-monitor/useLiveMonitor.ts`.
  */
 export function LiveMonitor(props: LiveMonitorProps) {
   const m = useLiveMonitor(props);
+
+  //TODO: I want a listener; there would be another "server" in which calls the api for the simulate fall event giving the roomId
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans tabular-nums text-slate-900" style={{ background: "#F1F5F9" }}>
@@ -40,7 +38,7 @@ export function LiveMonitor(props: LiveMonitorProps) {
         searchInputRef={m.searchInputRef as any}
         muted={m.muted}
         onToggleMuted={m.toggleMuted}
-        onSimulateFall={() => m.simulateFall()}
+        onSimulateFall={(e) => m.simulateFall(e)}
         onlineCount={m.onlineCount}
         totalCount={m.roomsOnFloor.length}
         anySensorDown={m.anySensorDown}

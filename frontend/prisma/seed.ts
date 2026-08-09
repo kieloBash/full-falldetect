@@ -65,7 +65,7 @@ async function main() {
     data: {
       facilityId: facility.id,
       firstName: 'Admin',
-      lastName: 'Fall',
+      lastName: 'Admin',
       email: 'admin@fall.example',
       passwordHash: PW,
       role: UserRole.ADMIN,
@@ -73,12 +73,24 @@ async function main() {
       lastLoginAt: min(5),
     },
   });
+  const nurseKel = await prisma.user.create({
+    data: {
+      facilityId: facility.id,
+      firstName: 'Kel',
+      lastName: 'Bash',
+      email: 'kel@bash.example',
+      passwordHash: PW,
+      role: UserRole.NURSE,
+      emailVerifiedAt: day(90),
+      lastLoginAt: min(2),
+    },
+  });
   const nurseAda = await prisma.user.create({
     data: {
       facilityId: facility.id,
-      firstName: 'Nurse',
-      lastName: '1',
-      email: 'nurse1@fall.example',
+      firstName: 'Ada',
+      lastName: 'Reyes',
+      email: 'ada.reyes@maplewood.example',
       passwordHash: PW,
       role: UserRole.NURSE,
       emailVerifiedAt: day(90),
@@ -144,6 +156,7 @@ async function main() {
           create: {
             status: r.room === '302' ? SensorStatus.DEGRADED : r.room === '303' ? SensorStatus.OFFLINE : SensorStatus.ONLINE,
             deviceLabel: `CAM-${r.room}`,
+            deviceId: `CAM-${r.room}`,
             lastSeenAt: r.room === '303' ? min(45) : min(1),
             installedAt: day(300),
           },

@@ -1,9 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { Icon } from "@/components/icons/Icon";
 import { ADMIN_ROUTES, COPY } from "@/lib/admin/constants";
 import { COPY as LIVE_MONITOR_COPY } from "@/lib/live-monitor/constants";
-import { Icon } from "@/components/icons/Icon";
+import { usePathname } from "next/navigation";
+import { ProfileDropdown } from "../ui/profile-dropdown";
 
 /** Global chrome for the Admin section: brand, "Admin" badge, breadcrumb (label derived from the current route), help, user menu. */
 export function AdminTopBar() {
@@ -39,7 +40,7 @@ export function AdminTopBar() {
         >
           ?
         </button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-xs font-semibold text-white">DO</div>
+        <ProfileDropdown />
       </div>
     </header>
   );

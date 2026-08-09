@@ -214,16 +214,18 @@ model Room {
 /// in the design chats, also the in-room camera feed source (CAM-{room.id}
 /// in the UI is this row's id).
 model Sensor {
-  id          String       @id @default(cuid())
-  roomId      String       @unique
-  room        Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  status      SensorStatus @default(ONLINE)
+  id     String       @id @default(cuid())
+  roomId String       @unique
+  room   Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  status SensorStatus @default(ONLINE)
   /// Camera/device identifier shown in the UI, e.g. "CAM-205".
+
+  deviceId    String?  @unique
   deviceLabel String?
-  lastSeenAt  DateTime     @default(now())
-  installedAt DateTime     @default(now())
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  lastSeenAt  DateTime @default(now())
+  installedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("sensors")
 }

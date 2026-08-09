@@ -116,16 +116,20 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
 
   const simulateFallMutation = useSimulateFallMutation();
   const simulateFall = useCallback(
-    (forceId?: string) => {
+    (roomId: string) => {
       if (!floor) return
       simulateFallMutation.mutate(
-        { roomId: forceId, floor },
+        { roomId, floor },
         {
           onSuccess: ({ roomId }) => {
+            console.log({ roomId })
             setSelectedId(roomId);
             beep();
           },
-          onError: (e) => toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600"),
+          onError: (e) => {
+            console.log({ e })
+            toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600")
+          },
         }
       );
     },

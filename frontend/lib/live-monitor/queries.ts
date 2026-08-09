@@ -47,8 +47,7 @@ export function useActivityQuery() {
 function useInvalidateBoard() {
   const qc = useQueryClient();
   return () => {
-    qc.invalidateQueries({ queryKey: liveMonitorKeys.rooms("2") });
-    qc.invalidateQueries({ queryKey: liveMonitorKeys.rooms("3") });
+    qc.invalidateQueries({ queryKey: ["live-monitor", "rooms"] }); // matches any floor
     qc.invalidateQueries({ queryKey: liveMonitorKeys.activity });
   };
 }

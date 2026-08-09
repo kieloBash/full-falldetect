@@ -1,7 +1,6 @@
 "use client";
 
 import { Icon } from "@/components/icons/Icon";
-import { useProfileMe } from "@/lib/auth/queries";
 import { COPY } from "@/lib/live-monitor/constants";
 import type { FloorId } from "@/lib/live-monitor/types";
 import type { RefObject } from "react";
@@ -14,7 +13,7 @@ export interface TopBarProps {
   searchInputRef: RefObject<HTMLInputElement>;
   muted: boolean;
   onToggleMuted: () => void;
-  onSimulateFall: () => void;
+  onSimulateFall: (roomId: string) => void;
   onlineCount: number;
   totalCount: number;
   anySensorDown: boolean;
@@ -63,7 +62,7 @@ export function TopBar({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={onSimulateFall}
+          onClick={() => onSimulateFall("cms1vshsx0009pdkhzl2x3gbr")}
           title="Demo: trigger a simulated fall"
           className="flex items-center gap-[6px] rounded-lg border-[1.5px] border-dashed border-teal-600 bg-teal-50 px-3 py-[7px] text-[12.5px] font-semibold text-teal-700 hover:bg-teal-100"
         >

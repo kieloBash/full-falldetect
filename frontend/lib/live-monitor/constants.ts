@@ -115,7 +115,7 @@ export const COPY = {
 
 export const NAV_ITEMS = [
   { key: "monitor", label: "Live Monitor", icon: "grid", active: true },
-  { key: "incidents", label: "Incidents", icon: "wall", active: false },
-  { key: "analytics", label: "Analytics", icon: "wall", active: false },
-  { key: "settings", label: "Settings", icon: "wall", active: false },
+  // { key: "incidents", label: "Incidents", icon: "wall", active: false },
+  // { key: "analytics", label: "Analytics", icon: "wall", active: false },
+  // { key: "settings", label: "Settings", icon: "wall", active: false },
 ] as const;
