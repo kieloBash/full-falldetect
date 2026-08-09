@@ -1,5 +1,5 @@
 import { Floor } from "@/app/generated/prisma/client";
-import type { AlertState, FloorId, RiskLevel, Room, SensorStatus } from "@/lib/live-monitor/types";
+import type { AlertState, RiskLevel, Room, SensorStatus } from "@/lib/live-monitor/types";
 import "server-only";
 
 /**
@@ -75,14 +75,14 @@ export const ROOM_INCLUDE = {
   resident: { select: { firstName: true, lastName: true, risk: true } },
   sensor: { select: { status: true } },
   incidents: {
-    // where: { state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
+    where: { state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
     select: {
       state: true,
       detectedAt: true,
       falseAlarmReason: true,
       responder: { select: { firstName: true, lastName: true } },
     },
-    // take: 1,
+    take: 1,
     orderBy: { detectedAt: "desc" },
   },
 } as const;

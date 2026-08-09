@@ -112,6 +112,37 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     }
   }, [muted]);
 
+  const prevActiveIdsRef = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    const currentActiveIds = new Set(
+      rooms.filter((r) => effState(r) === "active").map((r) => r.id)
+    );
+
+    // Skip the very first population — prevActiveIdsRef starts null, and we
+    // don't want to alert on incidents that were already active on page load.
+    if (prevActiveIdsRef.current !== null) {
+      const newlyActive = [...currentActiveIds].filter(
+        (id) => !prevActiveIdsRef.current!.has(id)
+      );
+
+      for (const id of newlyActive) {
+        const room = rooms.find((r) => r.id === id);
+        if (room) {
+          toast(`Fall detected — Room ${room.label}`, "bg-red-600");
+          beep();
+        }
+      }
+
+      if (newlyActive.length > 0 && selectedId === null) {
+        // Auto-focus the incident only if the nurse isn't already looking at something.
+        setSelectedId(newlyActive[0]);
+      }
+    }
+
+    prevActiveIdsRef.current = currentActiveIds;
+  }, [rooms, beep, toast, selectedId]);
+
   /* ── Actions ────────────────────────────────────────────────────────── */
 
   const simulateFallMutation = useSimulateFallMutation();

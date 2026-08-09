@@ -11,6 +11,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ roomId
 
   const incident = await prisma.incident.findFirst({
     where: { roomId, state: "ACTIVE", room: { floor: { facilityId } } },
+    include: { room: { select: { id: true, label: true } } }
   });
   if (!incident) return NextResponse.json({ error: "No active alert for this room." }, { status: 404 });
 
@@ -23,7 +24,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ roomId
   const acknowledgedBy = user ? `${user.firstName} ${user.lastName}` : "Unknown";
 
   await prisma.activityLogEntry.create({
-    data: { facilityId, type: "INCIDENT_ACKNOWLEDGED", message: `${acknowledgedBy} acknowledged Room ${roomId}`, incidentId: incident.id, roomId, actorId: userId },
+    data: { facilityId, type: "INCIDENT_ACKNOWLEDGED", message: `${acknowledgedBy} acknowledged Room ${incident.room.label}`, incidentId: incident.id, roomId, actorId: userId },
   });
 
   return NextResponse.json({ acknowledgedBy });

@@ -17,6 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ roomId:
 
   const incident = await prisma.incident.findFirst({
     where: { roomId, state: { in: ["ACTIVE", "ACKNOWLEDGED"] }, room: { floor: { facilityId } } },
+    include: { room: { select: { id: true, label: true } } }
   });
   if (!incident) return NextResponse.json({ error: "No open alert for this room." }, { status: 404 });
 
@@ -36,7 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ roomId:
   });
 
   await prisma.activityLogEntry.create({
-    data: { facilityId, type: "INCIDENT_FALSE_ALARM", message: `Room ${roomId} flagged false alarm — ${reason.toLowerCase()}`, incidentId: incident.id, roomId, actorId: userId },
+    data: { facilityId, type: "INCIDENT_FALSE_ALARM", message: `Room ${incident.room.label} flagged false alarm — ${reason.toLowerCase()}`, incidentId: incident.id, roomId, actorId: userId },
   });
 
   return NextResponse.json({ ok: true });

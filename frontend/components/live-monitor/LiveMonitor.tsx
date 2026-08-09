@@ -27,8 +27,6 @@ export type LiveMonitorProps = UseLiveMonitorOptions;
 export function LiveMonitor(props: LiveMonitorProps) {
   const m = useLiveMonitor(props);
 
-  //TODO: I want a listener; there would be another "server" in which calls the api for the simulate fall event giving the roomId
-
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans tabular-nums text-slate-900" style={{ background: "#F1F5F9" }}>
       <TopBar

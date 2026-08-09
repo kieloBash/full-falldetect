@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
-import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
+import { NextResponse } from "next/server";
 
 const INGEST_SECRET = process.env.MONITOR_INGEST_SECRET;
 const CONFIDENCE_THRESHOLD = 75;
@@ -27,6 +27,8 @@ export async function POST(req: Request) {
         eventType?: string;
     };
 
+    // console.log({ deviceId, confidence, detectedAt, eventType })
+
     if (!deviceId || typeof confidence !== "number" || !detectedAt || eventType !== "fall") {
         return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
     }
@@ -40,11 +42,15 @@ export async function POST(req: Request) {
         },
     });
 
+    // console.log({ sensor })
+
     if (!sensor?.room) {
         return NextResponse.json({ error: `Unknown device ${deviceId}` }, { status: 404 });
     }
 
     const room = sensor.room;
+
+    // console.log({ room })
 
     if (!room.residentId) {
         return NextResponse.json({ error: "Room has no resident." }, { status: 404 });
@@ -52,7 +58,10 @@ export async function POST(req: Request) {
 
     const facilityId = room.floor.facilityId;
 
+    // console.log({ facilityId })
+
     if (confidence < CONFIDENCE_THRESHOLD) {
+        // console.log({ confidence })
         await prisma.activityLogEntry.create({
             data: {
                 facilityId,
@@ -67,6 +76,9 @@ export async function POST(req: Request) {
     const existingOpen = await prisma.incident.findFirst({
         where: { roomId: room.id, state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
     });
+
+    // console.log({ existingOpen })
+
     if (existingOpen) {
         return NextResponse.json({ status: "already_open", incidentId: existingOpen.id });
     }
@@ -80,6 +92,8 @@ export async function POST(req: Request) {
             detectedAt: new Date(detectedAt),
         },
     });
+
+    // console.log({ incident })
 
     await prisma.activityLogEntry.create({
         data: {

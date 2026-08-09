@@ -22,6 +22,8 @@ export function useRoomsQuery(floor: FloorId | null) {
     queryKey: liveMonitorKeys.rooms(floor ?? ""),
     queryFn: () => api.fetchRooms(floor),
     staleTime: 5_000,
+    refetchInterval: 3_000,        // ← poll every 3s
+    refetchIntervalInBackground: true, // keep polling even if the tab isn't focused — worth it for a monitoring screen
   });
 }
 
@@ -40,6 +42,8 @@ export function useActivityQuery() {
     queryKey: liveMonitorKeys.activity,
     queryFn: () => api.fetchActivity(12),
     staleTime: 5_000,
+    refetchInterval: 3_000,
+    refetchIntervalInBackground: true,
   });
 }
 
