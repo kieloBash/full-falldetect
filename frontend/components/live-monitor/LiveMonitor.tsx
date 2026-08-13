@@ -1,9 +1,11 @@
 "use client";
 
 import { useLiveMonitor, type UseLiveMonitorOptions } from "@/lib/live-monitor/useLiveMonitor";
+import { useEffect, useRef, useState } from "react";
 import { ActiveAlertBanner } from "./ActiveAlertBanner";
 import { CameraModal } from "./CameraModal";
 import { CameraWall } from "./CameraWall";
+import { FallAlertModal } from "./FallAlertModal";
 import { FalseAlarmDialog } from "./FalseAlarmDialog";
 import { Inspector } from "./Inspector";
 import { RoomGrid } from "./RoomGrid";
@@ -27,6 +29,18 @@ export type LiveMonitorProps = UseLiveMonitorOptions;
 export function LiveMonitor(props: LiveMonitorProps) {
   const m = useLiveMonitor(props);
 
+  // Modal is dismissible per-alert-wave, but pops back open whenever the
+  // active count goes UP (i.e. a new fall fires), even if a previous one
+  // was already dismissed.
+  const [modalDismissed, setModalDismissed] = useState(false);
+  const prevActiveCountRef = useRef(m.activeCount);
+  useEffect(() => {
+    if (m.activeCount > prevActiveCountRef.current) {
+      setModalDismissed(false);
+    }
+    prevActiveCountRef.current = m.activeCount;
+  }, [m.activeCount]);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans tabular-nums text-slate-900" style={{ background: "#F1F5F9" }}>
       <TopBar
@@ -42,6 +56,15 @@ export function LiveMonitor(props: LiveMonitorProps) {
         anySensorDown={m.anySensorDown}
       />
 
+      <FallAlertModal
+        activeCount={modalDismissed ? 0 : m.activeCount}
+        reducedMotion={m.reducedMotion}
+        onJumpToAlert={() => {
+          setModalDismissed(true);
+          m.jumpToFirstActiveAlert();
+        }}
+        onDismiss={() => setModalDismissed(true)}
+      />
       <ActiveAlertBanner activeCount={m.activeCount} reducedMotion={m.reducedMotion} onJumpToAlert={m.jumpToFirstActiveAlert} />
 
       <div className="flex min-h-0 flex-1">

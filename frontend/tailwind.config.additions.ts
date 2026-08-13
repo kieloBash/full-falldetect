@@ -42,6 +42,14 @@ export const fallDetectThemeExtend = {
       "0%, 100%": { backgroundColor: "#DC2626" },
       "50%": { backgroundColor: "#B91C1C" },
     },
+    "fd-modal-pulse": {
+      "0%, 100%": { transform: "scale(1)", boxShadow: "0 0 0 0 rgba(220,38,38,0.5)" },
+      "50%": { transform: "scale(1.015)", boxShadow: "0 0 0 14px rgba(220,38,38,0)" },
+    },
+    "fd-modal-ring": {
+      "0%, 100%": { transform: "scale(1)", opacity: "1" },
+      "50%": { transform: "scale(1.12)", opacity: "0.85" },
+    },
     "fd-spin": {
       to: { transform: "rotate(360deg)" },
     },
@@ -57,6 +65,8 @@ export const fallDetectThemeExtend = {
     "fd-banner": "fd-banner 1.6s ease-in-out infinite",
     "fd-spin": "fd-spin .7s linear infinite",
     "fd-modal-in": "fd-modal-in .16s ease-out",
+    "fd-modal-pulse": "fd-modal-pulse 1.4s ease-in-out infinite",
+    "fd-modal-ring": "fd-modal-ring 1.4s ease-in-out infinite",
   },
   fontFamily: {
     sans: ['Inter', '"IBM Plex Sans"', "system-ui", "sans-serif"],

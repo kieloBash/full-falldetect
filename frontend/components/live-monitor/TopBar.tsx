@@ -60,7 +60,7 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
+        {/* <button
           type="button"
           onClick={() => onSimulateFall("cms1vshsx0009pdkhzl2x3gbr")}
           title="Demo: trigger a simulated fall"
@@ -68,7 +68,7 @@ export function TopBar({
         >
           <Icon name="play" size={13} fill="currentColor" strokeWidth={0} />
           {COPY.simulateFallLabel}
-        </button>
+        </button> */}
 
         <div className="h-[26px] w-px bg-slate-200" />
 
