@@ -1,0 +1,72 @@
+Fall Detection Backend - Setup Instructions
+=============================================
+
+These steps set up the Python virtual environment and install all
+required dependencies for the fall detection monitor.
+
+Prerequisites
+-------------
+- Python 3.9+ installed
+- Git installed
+
+
+1. Navigate to the backend folder
+-----------------------------------
+    cd backend
+
+1. Create the virtual environment
+-----------------------------------
+    python -m venv .fallvenv
+
+
+3. Activate the virtual environment
+---------------------------------------
+
+Windows (PowerShell):
+    .fallvenv\Scripts\Activate.ps1
+
+Windows (Command Prompt):
+    .fallvenv\Scripts\activate.bat
+
+macOS / Linux:
+    source .fallvenv/bin/activate
+
+You should see (.fallvenv) appear at the start of your terminal prompt
+once activated.
+
+for example: (.fallvenv) PS D:\full-falldetect>   
+
+5. Install dependencies
+---------------------------
+    pip install -r requirements.txt
+
+
+6. Verify installation
+--------------------------
+    python -c "import cv2, ultralytics; print('OK')"
+
+If this prints OK with no errors, setup is complete.
+
+
+7. Run the monitor
+------------------------
+    python monitor.py
+
+
+Notes
+-----
+- Always activate the venv (step 4) before running any scripts or
+  installing new packages.
+- If you install a new package, update requirements.txt with:
+      pip freeze > requirements.txt
+  and commit the updated file.
+- Do NOT commit the .fallvenv/ folder itself - it is excluded via
+  .gitignore and should always be created fresh using the steps above.
+- Model weights (backend/model/best_v2.pt) must be present separately;
+  they are not included in this setup process.
+
+
+Deactivating
+------------
+When done working, deactivate the virtual environment with:
+    deactivate
