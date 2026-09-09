@@ -13,7 +13,7 @@ model (Python) → server (Python, FastAPI) → frontend (Next.js) → DB → Li
 ```
 full-fall-detect/
 ├── model/      Fall-detection model (see model's own docs, if any)
-├── server/     Python ingest server — receives events from the model,
+├── backend/    Python ingest server — receives events from the model,
 │               validates, forwards to the frontend. See server/README.md
 └── frontend/   Next.js app — auth, Live Monitor UI, incident lifecycle,
                 Prisma/Postgres database. See frontend/README.md
