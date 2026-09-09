@@ -13,39 +13,68 @@ import requests
 import threading
 import queue
 import os
-from datetime import datetime
+import platform
+from datetime import datetime, timezone
 from ultralytics import YOLO
+from config import FRONTEND_INGEST_URL, INGEST_SECRET
 
-#config
-WEIGHTS_PATH      = "D:\\full-falldetect\\backend\\model\\best_v2.pt"
-CONF              = 0.6
-INITIAL_ALERT_DELAY_SEC = 5     # time before first alert fires
-REPEAT_ALERT_INTERVAL   = 10    # time between repeat alerts while still missing
-MAX_REPEAT_ALERTS       = 4     # stop repeating after this many (avoids infinite spam on a stuck bad view)
-INFER_SKIP        = 2
-ALERT_API_URL     = "http://localhost:3000/api/alertTest"
-SCREENSHOT_FOLDER = "screenshots"
+# config
+WEIGHTS_PATH            = "/Volumes/256 SSD/Dev/full-fall-detect/backend/model/best_v2.pt"
+CONF                    = 0.6
+INITIAL_ALERT_DELAY_SEC = 5
+REPEAT_ALERT_INTERVAL   = 10
+MAX_REPEAT_ALERTS       = 4
+INFER_SKIP              = 2
+ALERT_API_URL           = FRONTEND_INGEST_URL
+SCREENSHOT_FOLDER       = "screenshots"
 
-#Detect available cameras (0 to max_index)
+# platform detection
+IS_WINDOWS = platform.system() == "Windows"
+IS_MAC     = platform.system() == "Darwin"
+
+
 def detect_cameras(max_index=5):
     available = []
     print("[*] Scanning for cameras...\n")
+    print(f"[*] Platform: {platform.system()}\n")
+
     for i in range(max_index + 1):
-        cap = cv2.VideoCapture(i)
-        if cap.isOpened():
-            ret, _ = cap.read()
-            if ret:
-                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                print(f"  [OK] index={i} | camera_id=cam{i+1} | {w}x{h}")
-                available.append({"index": i, "camera_id": f"cam{i+1}"})
+        cap = None
+
+        if IS_WINDOWS:
+            for backend in [cv2.CAP_DSHOW, cv2.CAP_MSMF]:
+                c = cv2.VideoCapture(i, backend)
+                if c.isOpened():
+                    ret, _ = c.read()
+                    if ret:
+                        cap = c
+                        break
+                c.release()
+        else:
+            # Mac / Linux — AVFoundation picked automatically
+            c = cv2.VideoCapture(i)
+            if c.isOpened():
+                ret, _ = c.read()
+                if ret:
+                    cap = c
+                else:
+                    c.release()
+            else:
+                c.release()
+
+        if cap is not None:
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            print(f"  [OK] index={i} | camera_id=CAM-{i+1} | {w}x{h}")
+            available.append({"index": i, "camera_id": f"CAM-{i+1}"})
             cap.release()
         else:
             print(f"  [--] index={i} not available")
+
     print(f"\n[*] Found {len(available)} camera(s)\n")
     return available
 
-#Select cameras to monitor
+
 def prompt_camera_selection(available):
     if not available:
         return []
@@ -83,7 +112,6 @@ def prompt_camera_selection(available):
             print("  [!] Enter space-separated indices (e.g. 0 2 3)")
 
 
-#save screenshot to file
 def save_screenshot(frame, camera_id):
     os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
     ts       = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -92,7 +120,7 @@ def save_screenshot(frame, camera_id):
     print(f"  [Screenshot] {filename}")
     return filename
 
-#Alert API call in a separate thread to avoid blocking the main loop
+
 def fire_alert(camera_id, timestamp, screenshot_path, alert_count, missing_secs):
     print("\n" + "=" * 55)
     print(f"  FALL ALERT #{alert_count} -- Camera {camera_id}")
@@ -100,20 +128,24 @@ def fire_alert(camera_id, timestamp, screenshot_path, alert_count, missing_secs)
     print(f"  Missing for   : {missing_secs}s")
     print(f"  Screenshot    : {screenshot_path}")
     print("=" * 55 + "\n")
+
     payload = {
-        "camera_id": camera_id,
-        "timestamp": timestamp,
+        "deviceId"   : camera_id,
+        "detectedAt" : datetime.now(timezone.utc).isoformat(),
+        "confidence" : CONF * 100,
+        "eventType"  : "fall",
         "screenshot": screenshot_path,
-        "alert_count": alert_count,
-        "missing_secs": missing_secs,
+        "alertCount": alert_count,
+        "missingSecs": missing_secs,
     }
     try:
         r = requests.post(
             ALERT_API_URL,
             json    = payload,
-            headers = {"Content-Type": "application/json"},
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {INGEST_SECRET}"},
             timeout = 5,
         )
+        r.raise_for_status()
         print(f"  [API] {r.status_code} -- {r.text}")
     except requests.exceptions.ConnectionError:
         print(f"  [API] Could not connect to {ALERT_API_URL}")
@@ -121,13 +153,12 @@ def fire_alert(camera_id, timestamp, screenshot_path, alert_count, missing_secs)
         print(f"  [API] Error: {e}")
 
 
-#Camera has their own thread and model instance. No sharing between threads.
 class CameraMonitor:
     def __init__(self, camera, weights_path):
         self.camera_index = camera["index"]
         self.camera_id    = camera["camera_id"]
         self.weights_path = weights_path
-        self.model        = None   
+        self.model        = None
         self.frame_queue  = queue.Queue(maxsize=2)
         self.result_queue = queue.Queue(maxsize=2)
         self.running      = threading.Event()
@@ -151,13 +182,19 @@ class CameraMonitor:
         print(f"[{self.camera_id}] Stopped")
 
     def _camera_reader(self):
-        cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+        if IS_WINDOWS:
+            cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+        else:
+            cap = cv2.VideoCapture(self.camera_index)
+
         cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
         if not cap.isOpened():
             print(f"[{self.camera_id}] Could not open camera")
             self.running.clear()
             return
+
         frame_idx = 0
         while self.running.is_set():
             ret, frame = cap.read()
@@ -184,6 +221,7 @@ class CameraMonitor:
                 frame_idx, frame = self.frame_queue.get(timeout=1.0)
             except queue.Empty:
                 continue
+
             if frame_idx % INFER_SKIP == 0:
                 resized = cv2.resize(frame, (640, 640))
                 results = self.model(resized, conf=CONF, verbose=False)
@@ -200,6 +238,7 @@ class CameraMonitor:
                     last_result = {"class": None, "confidence": None, "frame": frame}
             else:
                 last_result = {**last_result, "frame": frame}
+
             if self.result_queue.full():
                 try: self.result_queue.get_nowait()
                 except queue.Empty: pass
@@ -213,18 +252,21 @@ class CameraMonitor:
         missing_since   = None
         last_alert_time = None
         alert_count     = 0
+
         while self.running.is_set():
             time.sleep(0.5)
             try:
                 result = self.result_queue.get_nowait()
             except queue.Empty:
                 continue
+
             patient_detected = result.get("class") == "patient_on_bed"
             now    = time.time()
             status = result.get("class") or "no_detection"
             conf   = result.get("confidence")
             print(f"  [{self.camera_id}] Frame {result.get('frame_idx'):>6} | "
                   f"{status:<20}" + (f" | conf={conf:.4f}" if conf else ""))
+
             if patient_detected:
                 if missing_since is not None:
                     print(f"  [{self.camera_id}] Patient back — resetting timer")
@@ -232,9 +274,11 @@ class CameraMonitor:
                 last_alert_time = None
                 alert_count     = 0
                 continue
+
             if missing_since is None:
                 missing_since = now
                 print(f"  [{self.camera_id}] Not detected — starting {INITIAL_ALERT_DELAY_SEC}s timer")
+
             missing_secs = now - missing_since
             should_alert = False
             if last_alert_time is None and missing_secs >= INITIAL_ALERT_DELAY_SEC:
@@ -243,6 +287,7 @@ class CameraMonitor:
                   and now - last_alert_time >= REPEAT_ALERT_INTERVAL
                   and alert_count < MAX_REPEAT_ALERTS):
                 should_alert = True
+
             if should_alert:
                 alert_count    += 1
                 last_alert_time = now
@@ -253,6 +298,7 @@ class CameraMonitor:
                     args=(self.camera_id, result.get("timestamp"), screenshot, alert_count, round(missing_secs)),
                     daemon=True,
                 ).start()
+
 
 def main():
     available = detect_cameras()
@@ -271,7 +317,6 @@ def main():
     print(f"[*] Press Ctrl+C to stop\n")
     print(f"[*] Each camera will load its own model instance...\n")
 
-    # Each camera gets its own model — no sharing between threads
     monitors = [CameraMonitor(cam, WEIGHTS_PATH) for cam in selected]
     for m in monitors:
         m.start()

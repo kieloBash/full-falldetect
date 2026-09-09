@@ -20,16 +20,18 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-    const { deviceId, confidence, detectedAt, eventType } = body as {
+    const { deviceId, confidence, detectedAt, screenshot, alertCount, missingSecs } = body as {
         deviceId?: string;
         confidence?: number;
         detectedAt?: string;
-        eventType?: string;
+        screenshot?: string;
+        alertCount?: string;
+        missingSecs?: string;
     };
 
-    // console.log({ deviceId, confidence, detectedAt, eventType })
+    console.log({ body })
 
-    if (!deviceId || typeof confidence !== "number" || !detectedAt || eventType !== "fall") {
+    if (!deviceId || typeof confidence !== "number" || !detectedAt || !screenshot || !alertCount || !missingSecs) {
         return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
     }
 
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
         },
     });
 
-    // console.log({ sensor })
+    console.log({ sensor })
 
     if (!sensor?.room) {
         return NextResponse.json({ error: `Unknown device ${deviceId}` }, { status: 404 });
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
 
     const room = sensor.room;
 
-    // console.log({ room })
+    console.log({ room })
 
     if (!room.residentId) {
         return NextResponse.json({ error: "Room has no resident." }, { status: 404 });
@@ -58,26 +60,25 @@ export async function POST(req: Request) {
 
     const facilityId = room.floor.facilityId;
 
-    // console.log({ facilityId })
+    console.log({ facilityId })
 
-    if (confidence < CONFIDENCE_THRESHOLD) {
-        // console.log({ confidence })
-        await prisma.activityLogEntry.create({
-            data: {
-                facilityId,
-                type: "SENSOR_DEGRADED", // no LOW_CONFIDENCE_DETECTION in your ActivityType enum — see note below
-                message: `Low-confidence detection in Room ${room.label} (${confidence}%)`,
-                roomId: room.id,
-            },
-        });
-        return NextResponse.json({ status: "logged_below_threshold" });
-    }
+    // if (confidence < CONFIDENCE_THRESHOLD) {
+    //     await prisma.activityLogEntry.create({
+    //         data: {
+    //             facilityId,
+    //             type: "SENSOR_DEGRADED", // no LOW_CONFIDENCE_DETECTION in your ActivityType enum — see note below
+    //             message: `Low-confidence detection in Room ${room.label} (${confidence}%)`,
+    //             roomId: room.id,
+    //         },
+    //     });
+    //     return NextResponse.json({ status: "logged_below_threshold" });
+    // }
 
     const existingOpen = await prisma.incident.findFirst({
         where: { roomId: room.id, state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
     });
 
-    // console.log({ existingOpen })
+    console.log({ existingOpen })
 
     if (existingOpen) {
         return NextResponse.json({ status: "already_open", incidentId: existingOpen.id });
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
         },
     });
 
-    // console.log({ incident })
+    console.log({ incident })
 
     await prisma.activityLogEntry.create({
         data: {
