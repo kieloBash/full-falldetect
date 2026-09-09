@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { Room } from "@/lib/live-monitor/types";
 
 export interface FallAlertModalProps {
     /** Number of falls currently active. Modal is hidden when this is 0. */
@@ -14,6 +15,7 @@ export interface FallAlertModalProps {
     onDismiss: () => void;
     /** Optional: play a chime when a new fall appears. Defaults to true. */
     playSound?: boolean;
+    activeRoom?: Room | null;
 }
 
 /**
@@ -26,6 +28,7 @@ export interface FallAlertModalProps {
  */
 export function FallAlertModal({
     activeCount,
+    activeRoom,
     alertLabel,
     reducedMotion,
     onJumpToAlert,
@@ -101,12 +104,44 @@ export function FallAlertModal({
                     <h2 className="text-xl font-bold leading-tight">
                         {activeCount === 1 ? "Fall detected" : `${activeCount} falls detected`}
                     </h2>
-                    {alertLabel && (
-                        <p className="text-sm font-medium text-white/90">{alertLabel}</p>
+                    {activeRoom && (
+                        <p className="text-sm font-medium text-white/90">
+                            Room {activeRoom.label} — {activeRoom.resident}
+                        </p>
                     )}
+
+                    {activeRoom?.confidence != null && (
+                        <span className="rounded-full bg-white/20 px-3 py-1 text-[12px] font-semibold text-white">
+                            AI confidence: {Math.round(activeRoom.confidence)}%
+                        </span>
+                    )}
+
                     <p className="text-[13px] text-white/80">
                         Respond now to acknowledge and view the live feed.
                     </p>
+                    {activeRoom?.screenshotPath && (
+                        <div className="px-5 pb-4">
+                            <div className="mb-[6px] text-[10px] font-semibold uppercase tracking-[.06em] text-white/60">
+                                Detection snapshot
+                            </div>
+                            <a
+                                href={`/${activeRoom.screenshotPath}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block"
+                            >
+                                <img
+                                    src={`/${activeRoom.screenshotPath}`}
+                                    alt="Fall detection screenshot"
+                                    className="w-full rounded-[8px] border-2 border-white/20 object-cover"
+                                    style={{ maxHeight: 180 }}
+                                />
+                                <p className="mt-1 text-center text-[10px] text-white/50">
+                                    Tap to open full image
+                                </p>
+                            </a>
+                        </div>
+                    )}
                 </div>
 
                 {/* Actions */}

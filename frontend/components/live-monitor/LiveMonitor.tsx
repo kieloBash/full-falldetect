@@ -58,6 +58,7 @@ export function LiveMonitor(props: LiveMonitorProps) {
 
       <FallAlertModal
         activeCount={modalDismissed ? 0 : m.activeCount}
+        activeRoom={m.sortedRooms.find(r => r.alertState === "active") ?? null}
         reducedMotion={m.reducedMotion}
         onJumpToAlert={() => {
           setModalDismissed(true);

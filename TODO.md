@@ -1,0 +1,1 @@
+1. online status of cameras
