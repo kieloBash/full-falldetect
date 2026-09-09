@@ -33,6 +33,7 @@ export interface Room {
   confidence: number | null;
   /** Web-accessible screenshot path, e.g. "screenshots/CAM-1_2026-09-09.jpg" */
   screenshotPath: string | null;
+  deviceId?: string;
 }
 
 export interface History {
