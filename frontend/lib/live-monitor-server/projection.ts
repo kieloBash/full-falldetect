@@ -26,10 +26,12 @@ export interface RoomRow {
   zone: string;
   floor: Floor;
   resident: { firstName: string; lastName: string; risk: string } | null;
-  sensor: { status: string } | null;
+  sensor: { status: string; deviceId: string | null } | null;
   incidents: Array<{
     state: string;
     detectedAt: Date;
+    confidence: number;
+    screenshotPath: string | null;
     responder: { firstName: string; lastName: string } | null;
     falseAlarmReason: string | null;
   }>;
@@ -43,8 +45,12 @@ function initialsOf(first: string, last: string): string {
  * Projects one joined DB room into the UI `Room`. `incidents` should contain
  * at most the single open incident (filter to ACTIVE/ACKNOWLEDGED in the
  * query); if present it drives alertState/startedAt/acknowledgedBy.
+ *
+ * NOTE: `deviceId` is appended to the returned object even though it's not
+ * in the `Room` type — CameraFeed reads it via `(room as any).deviceId`.
+ * Adding it to the Room type is the cleaner long-term fix.
  */
-export function projectRoom(row: any): Room {
+export function projectRoom(row: any): Room & { deviceId: string | null } {
   const residentName = row.resident ? `${row.resident.firstName} ${row.resident.lastName}` : "Unassigned";
   const open = row.incidents[0];
   const alertState: AlertState = open ? OPEN_STATE_TO_UI[open.state] ?? "idle" : "idle";
@@ -66,6 +72,10 @@ export function projectRoom(row: any): Room {
         : null,
     falseAlarmReason: null,
     history: row.incidents,
+    confidence: open ? open.confidence : null,
+    screenshotPath: open ? open.screenshotPath ?? null : null,
+    // Exposed for CameraFeed stream URL construction
+    deviceId: row.sensor?.deviceId ?? null,
   };
 }
 
@@ -73,12 +83,15 @@ export function projectRoom(row: any): Room {
 export const ROOM_INCLUDE = {
   floor: { select: { label: true, id: true } },
   resident: { select: { firstName: true, lastName: true, risk: true } },
-  sensor: { select: { status: true } },
+  // Added deviceId so CameraFeed can build the stream URL
+  sensor: { select: { status: true, deviceId: true } },
   incidents: {
     where: { state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
     select: {
       state: true,
       detectedAt: true,
+      confidence: true,
+      screenshotPath: true,
       falseAlarmReason: true,
       responder: { select: { firstName: true, lastName: true } },
     },

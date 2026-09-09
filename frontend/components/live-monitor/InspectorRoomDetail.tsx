@@ -39,6 +39,8 @@ export function InspectorRoomDetail({
   const elapsed = elapsedSeconds(room.startedAt, now);
   const history = historyForRisk(room.history);
 
+  console.log({ room })
+
   return (
     <div>
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -80,9 +82,41 @@ export function InspectorRoomDetail({
             <div className="text-[11px] font-medium uppercase tracking-[.05em] text-slate-600">
               {state === "active" ? "Fall detected · elapsed" : "Responding · elapsed"}
             </div>
-            <div className={`mt-[2px] text-[30px] font-bold tabular-nums ${state === "active" ? "text-red-600" : "text-amber-700"}`}>
+            <div
+              className={`mt-[2px] text-[30px] font-bold tabular-nums ${state === "active" ? "text-red-600" : "text-amber-700"
+                }`}
+            >
               {formatElapsed(elapsed)}
             </div>
+
+            {/* Detection details row */}
+            <div className="mt-[10px] flex gap-[8px]">
+              {room.confidence !== null && (
+                <span className="inline-flex items-center rounded-md bg-white/70 px-[8px] py-[3px] text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
+                  AI confidence: {Math.round(room.confidence)}%
+                </span>
+              )}
+            </div>
+
+            {/* Screenshot */}
+            {room.screenshotPath && (
+              <div className="mt-[10px]">
+                <div className="mb-[5px] text-[10px] font-semibold uppercase tracking-[.05em] text-slate-500">
+                  Detection snapshot
+                </div>
+                <a href={`/${room.screenshotPath}`} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={`/${room.screenshotPath}`}
+                    alt="Fall detection screenshot"
+                    className="w-full rounded-[6px] border border-slate-200 object-cover"
+                    style={{ maxHeight: 160 }}
+                  />
+                  <div className="mt-[4px] text-[10px] text-slate-400">
+                    Tap to open full image
+                  </div>
+                </a>
+              </div>
+            )}
           </div>
         )}
 

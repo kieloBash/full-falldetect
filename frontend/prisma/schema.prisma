@@ -252,6 +252,10 @@ model Incident {
   /// AI detection confidence, 0–100. Shown as "98%" / "Nominal" in the UI.
   confidence Float @default(0)
 
+  /// Path to the screenshot saved by the detection backend, relative to /public.
+  /// e.g. "screenshots/CAM-1_2026-09-09_14-32-01.jpg"
+  screenshotPath String?
+
   detectedAt      DateTime  @default(now())
   acknowledgedAt  DateTime?
   resolvedAt      DateTime?

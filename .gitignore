@@ -42,3 +42,4 @@ frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
 backend/screenshots/*
+frontend/public/screenshots/*

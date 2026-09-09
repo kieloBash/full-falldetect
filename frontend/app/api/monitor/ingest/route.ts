@@ -20,20 +20,21 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-    const { deviceId, confidence, detectedAt, screenshot, alertCount, missingSecs } = body as {
+    const { deviceId, confidence, detectedAt, eventType, screenshot } = body as {
         deviceId?: string;
         confidence?: number;
         detectedAt?: string;
+        eventType?: string;
         screenshot?: string;
-        alertCount?: string;
-        missingSecs?: string;
     };
 
-    console.log({ body })
+    // console.log({ deviceId, confidence, detectedAt, eventType })
 
-    if (!deviceId || typeof confidence !== "number" || !detectedAt || !screenshot || !alertCount || !missingSecs) {
+    if (!deviceId || typeof confidence !== "number" || !detectedAt || eventType !== "fall") {
         return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
     }
+
+    console.log({ body })
 
     const sensor = await prisma.sensor.findUnique({
         where: { deviceId },
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
         },
     });
 
-    console.log({ sensor })
+    // console.log({ sensor })
 
     if (!sensor?.room) {
         return NextResponse.json({ error: `Unknown device ${deviceId}` }, { status: 404 });
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
 
     const room = sensor.room;
 
-    console.log({ room })
+    // console.log({ room })
 
     if (!room.residentId) {
         return NextResponse.json({ error: "Room has no resident." }, { status: 404 });
@@ -60,9 +61,10 @@ export async function POST(req: Request) {
 
     const facilityId = room.floor.facilityId;
 
-    console.log({ facilityId })
+    // console.log({ facilityId })
 
     // if (confidence < CONFIDENCE_THRESHOLD) {
+    //     // console.log({ confidence })
     //     await prisma.activityLogEntry.create({
     //         data: {
     //             facilityId,
@@ -78,10 +80,22 @@ export async function POST(req: Request) {
         where: { roomId: room.id, state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
     });
 
-    console.log({ existingOpen })
+    // console.log({ existingOpen })
 
     if (existingOpen) {
         return NextResponse.json({ status: "already_open", incidentId: existingOpen.id });
+    }
+
+    // screenshot arrives as an absolute path like
+    // "/Volumes/.../frontend/public/screenshots/CAM-1_....jpg"
+    // Strip everything up to and including "public/" so it becomes a
+    // web-accessible path: "screenshots/CAM-1_....jpg"
+    let screenshotPath: string | null = null;
+    if (screenshot) {
+        const publicIdx = screenshot.replace(/\\/g, "/").indexOf("public/");
+        screenshotPath = publicIdx !== -1
+            ? screenshot.replace(/\\/g, "/").slice(publicIdx + "public/".length)
+            : null;
     }
 
     const incident = await prisma.incident.create({
@@ -91,10 +105,9 @@ export async function POST(req: Request) {
             state: "ACTIVE",
             confidence,
             detectedAt: new Date(detectedAt),
+            screenshotPath,
         },
     });
-
-    console.log({ incident })
 
     await prisma.activityLogEntry.create({
         data: {
