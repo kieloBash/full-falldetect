@@ -27,13 +27,10 @@ Three things need to run at once, each in its own terminal:
    See [`frontend/README.md`](./frontend/README.md) for full setup
    (Node install, `npx create-db@latest`, Prisma migrate, `npm run dev`).
 
-2. **`server/`** — the Python ingest server.
-   See [`server/README.md`](./server/README.md) for full setup
+2. **`backend/`** — the Python ingest server.
+   See [`backend/README.md`](./server/README.md) for full setup
    (Python/venv, `pip install -r requirements.txt`,
-   `python -m uvicorn app.main:app --reload --port 8000`).
-
-3. **`model/`** — the detection model, once wired to call the server's
-   `/events/fall` endpoint.
+   `python3 main.py`).
 
 Start the frontend first (the server has nowhere to forward events to
 otherwise), then the server, then the model.
