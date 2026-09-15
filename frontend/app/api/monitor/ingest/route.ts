@@ -8,6 +8,8 @@ const CONFIDENCE_THRESHOLD = 75;
 function verifyIngestAuth(req: Request): boolean {
     const header = req.headers.get("authorization") ?? "";
     const expected = `Bearer ${INGEST_SECRET}`;
+    console.log({ expected })
+    console.log({ INGEST_SECRET })
     if (!INGEST_SECRET || header.length !== expected.length) return false;
     return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }
