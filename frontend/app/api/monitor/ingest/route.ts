@@ -5,18 +5,21 @@ import { NextResponse } from "next/server";
 const INGEST_SECRET = process.env.MONITOR_INGEST_SECRET;
 const CONFIDENCE_THRESHOLD = 75;
 
-function verifyIngestAuth(req: Request): boolean {
+function verifyIngestAuth(req: Request): { ok: boolean; debug: string } {
     const header = req.headers.get("authorization") ?? "";
     const expected = `Bearer ${INGEST_SECRET}`;
-    console.log({ expected })
-    console.log({ INGEST_SECRET })
-    if (!INGEST_SECRET || header.length !== expected.length) return false;
-    return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+    if (!INGEST_SECRET) return { ok: false, debug: "INGEST_SECRET is undefined on server" };
+    if (header.length !== expected.length) {
+        return { ok: false, debug: `Length mismatch: got ${header.length}, expected ${expected.length}` };
+    }
+    const ok = timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+    return { ok, debug: ok ? "match" : "value mismatch" };
 }
 
 export async function POST(req: Request) {
-    if (!verifyIngestAuth(req)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const auth = verifyIngestAuth(req);
+    if (!auth.ok) {
+        return NextResponse.json({ error: "Unauthorized", debug: auth.debug }, { status: 401 });
     }
 
     const body = await req.json().catch(() => null);
