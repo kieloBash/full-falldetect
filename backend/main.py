@@ -22,7 +22,7 @@ from flask import Flask, Response
 from config import FRONTEND_INGEST_URL, INGEST_SECRET
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-WEIGHTS_PATH            = "/Volumes/256 SSD/Dev/full-fall-detect/backend/model/best_v2.pt"
+WEIGHTS_PATH            = r"D:\Projects\full-falldetect\backend\model\best_v2.pt"
 CONF                    = 0.2
 INITIAL_ALERT_DELAY_SEC = 5
 REPEAT_ALERT_INTERVAL   = 10
@@ -50,6 +50,11 @@ flask_app = Flask(__name__)
 _latest_frames: dict[str, bytes] = {}
 _frames_lock = threading.Lock()
 
+# ── Config ─────────────────────────────────────────────────────────────────────
+CAMERA_ID_MAP = {
+    0: "CAM-201",
+    1: "CAM-202",
+}
 
 def _set_frame(camera_id: str, jpeg_bytes: bytes):
     with _frames_lock:
@@ -131,7 +136,11 @@ def detect_cameras(max_index=5):
         if cap is not None:
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            camera_id = f"CAM-{i + 1}"
+            camera_id = CAMERA_ID_MAP.get(i)
+            if camera_id is None:
+                print(f"  [--] index={i} has no deviceId mapping, skipping")
+                cap.release()
+                continue
             print(f"  [OK] index={i} | camera_id={camera_id} | {w}x{h}")
             available.append({"index": i, "camera_id": camera_id})
             cap.release()
