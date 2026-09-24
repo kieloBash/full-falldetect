@@ -44,3 +44,4 @@ frontend/next-env.d.ts
 backend/screenshots/*
 backend/.env
 frontend/public/screenshots/*
+modules/

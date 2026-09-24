@@ -4,6 +4,7 @@ import type { Room } from "@/lib/live-monitor/types";
 import { badgeVariantFor, effState, elapsedSeconds, formatElapsed } from "@/lib/live-monitor/utils";
 import { Icon } from "@/components/icons/Icon";
 import { StatusBadge } from "./StatusBadge";
+import { resolveScreenshotSrc } from "@/lib/detection-node/utils";
 
 export interface InspectorRoomDetailProps {
   room: Room;
@@ -38,6 +39,8 @@ export function InspectorRoomDetail({
   const sensor = SENSOR_META[room.sensorStatus];
   const elapsed = elapsedSeconds(room.startedAt, now);
   const history = historyForRisk(room.history);
+
+  const screenshotSrc = resolveScreenshotSrc(room?.screenshotPath);
 
   console.log({ room })
 
@@ -99,14 +102,14 @@ export function InspectorRoomDetail({
             </div>
 
             {/* Screenshot */}
-            {room.screenshotPath && (
+            {screenshotSrc && (
               <div className="mt-[10px]">
                 <div className="mb-[5px] text-[10px] font-semibold uppercase tracking-[.05em] text-slate-500">
                   Detection snapshot
                 </div>
-                <a href={`/${room.screenshotPath}`} target="_blank" rel="noopener noreferrer">
+                <a href={`${screenshotSrc}`} target="_blank" rel="noopener noreferrer">
                   <img
-                    src={`/${room.screenshotPath}`}
+                    src={`${screenshotSrc}`}
                     alt="Fall detection screenshot"
                     className="w-full rounded-[6px] border border-slate-200 object-cover"
                     style={{ maxHeight: 160 }}

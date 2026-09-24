@@ -5,6 +5,7 @@ import type { Room } from "@/lib/live-monitor/types";
 import { effState, formatCameraStamp } from "@/lib/live-monitor/utils";
 import { Icon } from "@/components/icons/Icon";
 import { useState, useEffect } from "react";
+import { RemoteCameraFeed } from "@/components/detection-node/RemoteCameraFeed";
 
 export interface CameraFeedProps {
   room: Room;
@@ -72,12 +73,13 @@ export function CameraFeed({
       <div className={`relative ${heightClassName} overflow-hidden bg-[#0B1220]`}>
 
         {/* MJPEG stream — backend already draws the detection overlay on the frame */}
-        <img
+        {/* <img
           src={streamUrl}
           alt={`Live feed — Room ${room.label}`}
           className="h-full w-full object-cover"
           onError={() => setImgError(true)}
-        />
+        /> */}
+        <RemoteCameraFeed deviceId={deviceId ?? ""} className="h-full w-full" />
 
         {/* REC badge */}
         <div className="pointer-events-none absolute left-[10px] top-[9px] flex items-center gap-[9px]">

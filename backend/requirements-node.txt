@@ -1,0 +1,9 @@
+# location: backend/requirements-node.txt
+# Extra packages for the two-laptop setup. Install with:
+#   pip install -r requirements-node.txt
+flask>=3.0
+pyjwt>=2.8
+requests>=2.32
+python-dotenv>=1.0
+opencv-python>=4.9
+numpy>=1.26

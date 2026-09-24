@@ -1,75 +1,77 @@
-import { jwtVerify } from "jose";
+// location: frontend/proxy.ts
+// REPLACES the existing edge gate (TDS §9.2). Same flow, plus three fixes:
+//  1. /api/monitor/heartbeat is excluded (machine route, bearer secret, no cookie).
+//  2. Signed-out /api/* calls get 401 JSON instead of a 307 redirect to the login page.
+//  3. /admin, /api/admin/* and /api/detection-nodes/* require role ADMIN (fix #11).
+// Keep SESSION_COOKIE, ISSUER and the secret in sync with lib/auth/jwt.ts.
 import { NextResponse, type NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
-/**
- * Edge-runtime auth gate. Runs before every matched route (see `config`
- * below) and checks for a valid session JWT in the `fd_session` cookie.
- *
- * Why this re-implements verification instead of importing
- * `lib/auth/jwt.ts`: that module is `server-only` and targets the Node
- * runtime, but middleware runs on the Edge runtime. `jose` is edge-safe, so
- * we call `jwtVerify` here directly with the same secret + issuer. Keep
- * SECRET/ISSUER/ALG in sync with `lib/auth/jwt.ts`.
- */
-
-const SECRET = new TextEncoder().encode(
-  process.env.AUTH_JWT_SECRET ?? "dev-only-insecure-secret-change-me"
-);
+const SESSION_COOKIE = "fd_session";
 const ISSUER = "falldetect";
-const ALG = "HS256";
-const COOKIE_NAME = "fd_session";
 
-// The auth screen lives at "/". Everything else under the matcher is gated.
-const LOGIN_PATH = "/";
-// Where to send a signed-in user who lands on the login screen.
-const DEFAULT_AUTHED_DEST = "/live-monitor";
+const PUBLIC_API = ["/api/auth", "/api/facilities", "/api/monitor/ingest", "/api/monitor/heartbeat"];
+const ADMIN_ONLY = ["/admin", "/api/admin", "/api/detection-nodes"];
 
-async function hasValidSession(req: NextRequest): Promise<boolean> {
-  const token = req.cookies.get(COOKIE_NAME)?.value;
-  if (!token) return false;
-  try {
-    await jwtVerify(token, SECRET, { issuer: ISSUER, algorithms: [ALG] });
-    return true;
-  } catch {
-    return false;
+function matches(pathname: string, prefixes: string[]): boolean {
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function authSecret(): Uint8Array {
+  const secret = process.env.AUTH_JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_JWT_SECRET is not set");
   }
+  return new TextEncoder().encode(secret ?? "dev-only-insecure-secret-change-me");
+}
+
+async function readSession(req: NextRequest): Promise<{ role: string } | null> {
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, authSecret(), { issuer: ISSUER, algorithms: ["HS256"] });
+    return typeof payload.role === "string" ? { role: payload.role } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Only same-site paths, never "//evil.com". */
+function safeNext(next: string | null): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
 }
 
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  const isLogin = pathname === LOGIN_PATH;
-  const authed = await hasValidSession(req);
+  if (matches(pathname, PUBLIC_API)) return NextResponse.next();
 
-  // The login screen ("/") is the one public route.
-  if (isLogin) {
-    // Signed-in users shouldn't sit on the login page — send them onward,
-    // honoring a `?next=` hint if one is present and points somewhere real.
-    if (authed) {
-      const next = req.nextUrl.searchParams.get("next");
-      const dest = next && next.startsWith("/") && next !== LOGIN_PATH ? next : DEFAULT_AUTHED_DEST;
-      return NextResponse.redirect(new URL(dest, req.url));
-    }
-    return NextResponse.next();
+  const session = await readSession(req);
+  const isApi = pathname.startsWith("/api/");
+
+  if (pathname === "/") {
+    if (!session) return NextResponse.next();
+    const next = safeNext(req.nextUrl.searchParams.get("next")) ?? "/live-monitor";
+    return NextResponse.redirect(new URL(next, req.url));
   }
 
-  // Gated route without a valid session → bounce to login ("/"), remembering
-  // where they were headed so login can send them back.
-  if (!authed) {
-    const loginUrl = new URL(LOGIN_PATH, req.url);
-    loginUrl.searchParams.set("next", pathname + search);
-    return NextResponse.redirect(loginUrl);
+  if (!session) {
+    if (isApi) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    const login = new URL("/", req.url);
+    login.searchParams.set("next", `${pathname}${search}`);
+    return NextResponse.redirect(login);
+  }
+
+  if (matches(pathname, ADMIN_ONLY) && session.role !== "ADMIN") {
+    if (isApi) return NextResponse.json({ error: "Only administrators can do this" }, { status: 403 });
+    return NextResponse.redirect(new URL("/live-monitor", req.url));
   }
 
   return NextResponse.next();
 }
 
-/**
- * Matcher excludes Next internals, static assets, and the auth API routes
- * (those must stay reachable so login/register/logout can run). Everything
- * else flows through the gate; only "/" is allowed through without a session.
- */
 export const config = {
   matcher: [
-    "/((?!api/auth|api/facilities|api/monitor/ingest|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|screenshots/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt)$).*)",
   ],
 };

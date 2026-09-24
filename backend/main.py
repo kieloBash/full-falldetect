@@ -1,114 +1,60 @@
+# location: backend/main.py
 """
-Fall Detection Monitor
-- Auto detects all available cameras (Mac and Windows compatible)
-- User selects which cameras to monitor
+Fall Detection Monitor (camera laptop / laptop 2)
+- Detects the cameras listed in CAMERA_ID_MAP (Mac and Windows compatible)
+- User selects which cameras to monitor (auto-selects if only one)
 - Each selected camera runs independently with its own model instance
-- Fires REST API alert to Next.js when patient not detected for 30s
-- Saves screenshot to frontend/public/screenshots/ so Next.js serves it
-- Streams annotated MJPEG frames on http://localhost:8002/stream/<camera_id>
+- Raises a fall alert when patient_on_bed is missing for INITIAL_ALERT_DELAY_SEC,
+  repeating every REPEAT_ALERT_INTERVAL up to MAX_REPEAT_ALERTS times
+- First alert of each episode uploads its screenshot to the private Supabase bucket;
+  alerts go to laptop 1 and are queued/retried if laptop 1 is unreachable
+- Streams annotated MJPEG on http://<this laptop's IP>:8002/stream/<camera_id> (token required)
+- Sends a heartbeat to laptop 1 every 30 s with this laptop's video address and camera status
+All settings come from backend/.env via config.py.
 """
 
-import cv2
-import time
-import requests
-import threading
-import queue
+import logging
 import os
 import platform
-import numpy as np
-from datetime import datetime, timezone
-from ultralytics import YOLO
-from flask import Flask, Response
-from config import FRONTEND_INGEST_URL, INGEST_SECRET
+import queue
+import threading
+import time
+from datetime import datetime
 
-# ── Config ─────────────────────────────────────────────────────────────────────
-WEIGHTS_PATH            = r"D:\Projects\full-falldetect\backend\model\best_v2.pt"
+import cv2
+from ultralytics import YOLO
+
+import config
+from node_client import Heartbeat, current_stream_base_url, get_alert_sender, send_fall_alert
+from stream_server import frame_store, start_stream_server
+from stream_utils import encode_stream_jpeg
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
+
+# ── Config (from backend/.env via config.py) ───────────────────────────────────
+WEIGHTS_PATH            = config.WEIGHTS_PATH
+CAMERA_ID_MAP           = config.CAMERA_ID_MAP      # e.g. {0: "CAM-201"}
+SCREENSHOT_FOLDER       = config.SCREENSHOT_FOLDER  # local copy, backend/screenshots
 CONF                    = 0.2
 INITIAL_ALERT_DELAY_SEC = 5
 REPEAT_ALERT_INTERVAL   = 10
 MAX_REPEAT_ALERTS       = 4
 INFER_SKIP              = 2
-
-# Direct to Next.js — no FastAPI middleman needed for local testing
-ALERT_API_URL           = FRONTEND_INGEST_URL
-
-# Must be inside frontend/public/ so Next.js serves /screenshots/filename.jpg
-SCREENSHOT_FOLDER       = "../frontend/public/screenshots"
-
-# MJPEG stream server
-STREAM_HOST             = "0.0.0.0"
-STREAM_PORT             = 8002
+FIRST_FRAME_WAIT_SEC    = 60   # max wait for models to load before the first heartbeat
 
 # ── Platform detection ─────────────────────────────────────────────────────────
 IS_WINDOWS = platform.system() == "Windows"
 IS_MAC     = platform.system() == "Darwin"
 print(f"[*] Platform: {platform.system()}")
 
-# ── Flask MJPEG server ─────────────────────────────────────────────────────────
-flask_app = Flask(__name__)
-
-_latest_frames: dict[str, bytes] = {}
-_frames_lock = threading.Lock()
-
-# ── Config ─────────────────────────────────────────────────────────────────────
-CAMERA_ID_MAP = {
-    0: "CAM-201",
-    1: "CAM-202",
-}
-
-def _set_frame(camera_id: str, jpeg_bytes: bytes):
-    with _frames_lock:
-        _latest_frames[camera_id] = jpeg_bytes
-
-
-def _get_frame(camera_id: str) -> bytes | None:
-    with _frames_lock:
-        return _latest_frames.get(camera_id)
-
-
-def _generate_mjpeg(camera_id: str):
-    """Generator that yields MJPEG frames for a given camera."""
-    blank_frame = None
-    while True:
-        frame = _get_frame(camera_id)
-        if frame is None:
-            if blank_frame is None:
-                blank = np.zeros((480, 640, 3), dtype="uint8")
-                cv2.putText(blank, f"Waiting for {camera_id}...", (20, 240),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
-                _, buf = cv2.imencode(".jpg", blank)
-                blank_frame = buf.tobytes()
-            frame = blank_frame
-        yield (b"--frame\r\n"
-               b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
-        time.sleep(1 / 15)  # ~15 fps
-
-
-@flask_app.route("/stream/<camera_id>")
-def video_stream(camera_id):
-    return Response(
-        _generate_mjpeg(camera_id),
-        mimetype="multipart/x-mixed-replace; boundary=frame",
-    )
-
-
-@flask_app.route("/health")
-def health():
-    with _frames_lock:
-        cams = list(_latest_frames.keys())
-    return {"status": "ok", "streaming": cams}
-
-
-def _run_flask():
-    flask_app.run(host=STREAM_HOST, port=STREAM_PORT, threaded=True, use_reloader=False)
-
 
 # ── Camera discovery ───────────────────────────────────────────────────────────
-def detect_cameras(max_index=5):
+def detect_cameras():
+    """Probes only the indexes listed in CAMERA_ID_MAP (fewer OpenCV warnings on Mac)."""
     available = []
     print("[*] Scanning for cameras...\n")
 
-    for i in range(max_index + 1):
+    for i in sorted(CAMERA_ID_MAP):
         cap = None
 
         if IS_WINDOWS:
@@ -133,19 +79,15 @@ def detect_cameras(max_index=5):
             else:
                 c.release()
 
+        camera_id = CAMERA_ID_MAP[i]
         if cap is not None:
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            camera_id = CAMERA_ID_MAP.get(i)
-            if camera_id is None:
-                print(f"  [--] index={i} has no deviceId mapping, skipping")
-                cap.release()
-                continue
             print(f"  [OK] index={i} | camera_id={camera_id} | {w}x{h}")
             available.append({"index": i, "camera_id": camera_id})
             cap.release()
         else:
-            print(f"  [--] index={i} not available")
+            print(f"  [--] index={i} ({camera_id}) not available")
 
     print(f"\n[*] Found {len(available)} camera(s)\n")
     return available
@@ -163,8 +105,8 @@ def prompt_camera_selection(available):
     for cam in available:
         print(f"  [{cam['index']}] {cam['camera_id']}")
 
-    print(f"\nEnter camera indices to monitor (e.g. 0 2 3)")
-    print(f"Press Enter to select all\n")
+    print("\nEnter camera indices to monitor (e.g. 0 2 3)")
+    print("Press Enter to select all\n")
 
     while True:
         try:
@@ -191,46 +133,32 @@ def prompt_camera_selection(available):
 
 # ── Screenshot ─────────────────────────────────────────────────────────────────
 def save_screenshot(frame, camera_id):
+    """Saves a local copy and returns its path (uploaded to Supabase by send_fall_alert)."""
     os.makedirs(SCREENSHOT_FOLDER, exist_ok=True)
     ts       = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    filename = f"{camera_id}_{ts}.jpg"
-    filepath = os.path.join(SCREENSHOT_FOLDER, filename)
+    filepath = os.path.join(SCREENSHOT_FOLDER, f"{camera_id}_{ts}.jpg")
     cv2.imwrite(filepath, frame)
     print(f"  [Screenshot] {filepath}")
-    # Return just the web-accessible portion — Next.js serves from /public/
-    return f"{SCREENSHOT_FOLDER}/{filename}"
+    return filepath
 
 
 # ── Alert ──────────────────────────────────────────────────────────────────────
-def fire_alert(camera_id: str, timestamp: str, screenshot_web_path: str,
+def fire_alert(camera_id: str, timestamp: str, screenshot_path: str | None,
                alert_count: int, missing_secs: int, confidence: float = 0.0):
     print("\n" + "=" * 55)
     print(f"  FALL ALERT #{alert_count} -- Camera {camera_id}")
     print(f"  Timestamp   : {timestamp}")
     print(f"  Missing for : {missing_secs}s")
-    print(f"  Screenshot  : {screenshot_web_path}")
+    print(f"  Screenshot  : {screenshot_path or 'none'}")
     print("=" * 55 + "\n")
 
-    payload = {
-        "deviceId"   : camera_id,
-        "confidence" : round(confidence * 100, 2),  # 0–1 → 0–100
-        "detectedAt" : datetime.now(timezone.utc).isoformat(),
-        "eventType"  : "fall",
-        "screenshot" : screenshot_web_path,          # "screenshots/CAM-1_xxx.jpg"
-    }
-    try:
-        r = requests.post(
-            ALERT_API_URL,
-            json    = payload,
-            headers = {"Content-Type": "application/json","Authorization": f"Bearer {INGEST_SECRET}"},
-            timeout = 5,
-        )
-        r.raise_for_status()
-        print(f"  [API] {r.status_code} -- {r.text}")
-    except requests.exceptions.ConnectionError:
-        print(f"  [API] Could not connect to {ALERT_API_URL}")
-    except Exception as e:
-        print(f"  [API] Error: {e}")
+    # Only the first alert of an episode creates an incident; repeats come back
+    # "already_open", so only the first one uploads its screenshot.
+    send_fall_alert(
+        camera_id,
+        round(confidence * 100, 2),                       # 0–1 → 0–100
+        screenshot_path if alert_count == 1 else None,
+    )
 
 
 # ── Per-camera monitor ─────────────────────────────────────────────────────────
@@ -280,6 +208,7 @@ class CameraMonitor:
         while self.running.is_set():
             ret, frame = cap.read()
             if not ret:
+                # Frames stop, so the heartbeat reports this camera offline within ~30 s
                 print(f"[{self.camera_id}] Lost feed")
                 self.running.clear()
                 break
@@ -291,7 +220,7 @@ class CameraMonitor:
         cap.release()
 
     def _annotate_and_publish(self, frame, detected_class, confidence):
-        """Draw detection overlay onto frame and push to MJPEG stream."""
+        """Draw detection overlay onto frame and push it to the stream server."""
         annotated = frame.copy()
         h, w = annotated.shape[:2]
 
@@ -320,12 +249,19 @@ class CameraMonitor:
         cv2.putText(annotated, self.camera_id, (w - 90, 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1)
 
-        _, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 70])
-        _set_frame(self.camera_id, buf.tobytes())
+        # Downscaled to STREAM_MAX_WIDTH and JPEG-encoded at STREAM_JPEG_QUALITY
+        frame_store.publish(self.camera_id, encode_stream_jpeg(annotated))
 
     def _yolo_inference(self):
         print(f"[{self.camera_id}] Loading model...")
-        self.model  = YOLO(self.weights_path)
+        try:
+            self.model = YOLO(self.weights_path)
+        except Exception as exc:
+            # Without this, the thread died silently and the camera looked alive but never alerted
+            print(f"[{self.camera_id}] [!] Could not load model from {self.weights_path}: {exc}")
+            print(f"[{self.camera_id}] [!] Check WEIGHTS_PATH in backend/.env. This camera is stopping.")
+            self.running.clear()
+            return
         class_names = self.model.names
         last_result = {"class": None, "confidence": None, "frame": None}
         print(f"[{self.camera_id}] Model loaded — inference started")
@@ -412,7 +348,7 @@ class CameraMonitor:
                 alert_count    += 1
                 last_alert_time = now
                 frame      = result.get("frame")
-                screenshot = save_screenshot(frame, self.camera_id) if frame is not None else "N/A"
+                screenshot = save_screenshot(frame, self.camera_id) if frame is not None else None
                 confidence = result.get("confidence") or 0.0
                 threading.Thread(
                     target=fire_alert,
@@ -422,40 +358,65 @@ class CameraMonitor:
                 ).start()
 
 
+# ── Startup helpers ────────────────────────────────────────────────────────────
+def wait_for_first_frames(camera_ids, timeout=FIRST_FRAME_WAIT_SEC):
+    """Waits until every camera has streamed a frame (models loaded), so the first
+    heartbeat doesn't report them offline and log a needless offline/online pair."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if all(s["status"] == "online" for s in frame_store.statuses(camera_ids)):
+            return True
+        time.sleep(0.5)
+    return False
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 def main():
     available = detect_cameras()
     if not available:
-        print("[!] No cameras found. Exiting.")
+        print("[!] No cameras found. Check CAMERA_ID_MAP in backend/.env and camera permissions.")
         return
 
     selected = prompt_camera_selection(available)
     if not selected:
         print("[!] No cameras selected. Exiting.")
         return
+    selected_ids = [c["camera_id"] for c in selected]
 
-    # Start MJPEG stream server in background
-    flask_thread = threading.Thread(target=_run_flask, daemon=True)
-    flask_thread.start()
-    print(f"[*] Stream server  : http://localhost:{STREAM_PORT}/stream/<camera_id>")
+    start_stream_server(selected_ids)
+    supabase_on = bool(config.SUPABASE_URL and config.SUPABASE_UPLOAD_KEY)
 
-    print(f"[*] Monitoring     : {[c['camera_id'] for c in selected]}")
-    print(f"[*] Alert URL      : {ALERT_API_URL}")
-    print(f"[*] Screenshots    : {SCREENSHOT_FOLDER}/")
-    print(f"[*] Press Ctrl+C to stop\n")
+    print(f"[*] Monitoring     : {selected_ids}")
+    print(f"[*] Laptop 1       : {config.FRONTEND_BASE_URL}")
+    print(f"[*] Video address  : {current_stream_base_url()}/stream/<camera_id> (token required)")
+    print(f"[*] Screenshots    : {'Supabase bucket ' + config.SUPABASE_BUCKET if supabase_on else 'upload disabled'}"
+          f" (local copies in {SCREENSHOT_FOLDER})")
+    pending = get_alert_sender().pending()
+    if pending:
+        print(f"[*] Retry queue    : {pending} alert(s) from a previous run")
+    print("[*] Press Ctrl+C to stop\n")
 
     monitors = [CameraMonitor(cam, WEIGHTS_PATH) for cam in selected]
     for m in monitors:
         m.start()
         time.sleep(1.5)
 
+    if not wait_for_first_frames(selected_ids):
+        print("[!] Some cameras haven't produced frames yet; they'll show offline until they do.")
+    heartbeat = Heartbeat(lambda: frame_store.statuses(selected_ids))
+    heartbeat.start()
+
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         print("\n[*] Stopping...")
+        heartbeat.stop()
         for m in monitors:
             m.stop()
+        pending = get_alert_sender().pending()
+        if pending:
+            print(f"[*] {pending} alert(s) still queued; they'll be sent on the next start.")
         print("[*] Shutdown complete.")
 
 

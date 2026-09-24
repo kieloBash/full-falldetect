@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { Room } from "@/lib/live-monitor/types";
+import { resolveScreenshotSrc } from "@/lib/detection-node/utils";
 
 export interface FallAlertModalProps {
     /** Number of falls currently active. Modal is hidden when this is 0. */
@@ -37,6 +38,7 @@ export function FallAlertModal({
 }: FallAlertModalProps) {
     const audioCtxRef = useRef<AudioContext | null>(null);
     const lastCountRef = useRef(0);
+    const screenshotSrc = resolveScreenshotSrc(activeRoom?.screenshotPath);
 
     // Play a short chime whenever the active count goes up (new fall detected)
     useEffect(() => {
@@ -119,7 +121,7 @@ export function FallAlertModal({
                     <p className="text-[13px] text-white/80">
                         Respond now to acknowledge and view the live feed.
                     </p>
-                    {activeRoom?.screenshotPath && (
+                    {/* {activeRoom?.screenshotPath && (
                         <div className="px-5 pb-4">
                             <div className="mb-[6px] text-[10px] font-semibold uppercase tracking-[.06em] text-white/60">
                                 Detection snapshot
@@ -141,6 +143,11 @@ export function FallAlertModal({
                                 </p>
                             </a>
                         </div>
+                    )} */}
+                    {screenshotSrc && (
+                        <a href={screenshotSrc} target="_blank" rel="noreferrer">
+                            <img src={screenshotSrc} alt={`Fall screenshot, Room ${activeRoom?.label}`} />
+                        </a>
                     )}
                 </div>
 

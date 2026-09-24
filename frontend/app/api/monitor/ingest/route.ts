@@ -1,128 +1,106 @@
-import { prisma } from "@/lib/db/prisma";
-import { timingSafeEqual } from "crypto";
+// location: frontend/app/api/monitor/ingest/route.ts
+// REPLACES the existing ingest route (TDS §6.3).
+// Changes:
+//  - screenshotPath: the Supabase Storage object path uploaded by the camera laptop
+//    (validated to belong to this camera). The old "screenshot" local path still works.
+//  - 401 has no debug field (TDS §9.4).
+//  - Concurrent duplicate alerts are handled via the one-open-incident-per-room index.
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db/prisma";
+import { isUniqueViolation, jsonError } from "@/lib/api/errors";
+import { isMachineAuthorized } from "@/lib/detection-node-server/machine-auth";
+import { parseIngestFields } from "@/lib/detection-node-server/validators";
+import { isValidScreenshotPath } from "@/lib/detection-node-server/supabase-storage";
 
-const INGEST_SECRET = process.env.MONITOR_INGEST_SECRET;
-const CONFIDENCE_THRESHOLD = 75;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function verifyIngestAuth(req: Request): { ok: boolean; debug: string } {
-    const header = req.headers.get("authorization") ?? "";
-    const expected = `Bearer ${INGEST_SECRET}`;
-    if (!INGEST_SECRET) return { ok: false, debug: "INGEST_SECRET is undefined on server" };
-    if (header.length !== expected.length) {
-        return { ok: false, debug: `Length mismatch: got ${header.length}, expected ${expected.length}` };
-    }
-    const ok = timingSafeEqual(Buffer.from(header), Buffer.from(expected));
-    return { ok, debug: ok ? "match" : "value mismatch" };
+const OPEN_STATES = ["ACTIVE", "ACKNOWLEDGED"] as const;
+
+async function findOpenIncident(roomId: string) {
+  return prisma.incident.findFirst({
+    where: { roomId, state: { in: [...OPEN_STATES] } },
+    select: { id: true },
+  });
 }
 
 export async function POST(req: Request) {
-    const auth = verifyIngestAuth(req);
-    if (!auth.ok) {
-        return NextResponse.json({ error: "Unauthorized", debug: auth.debug }, { status: 401 });
-    }
+  if (!isMachineAuthorized(req)) return jsonError(401, "Unauthorized");
 
-    const body = await req.json().catch(() => null);
-    if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return jsonError(400, "Body must be JSON");
+  }
+  const parsed = parseIngestFields({
+    deviceId: body.deviceId,
+    confidence: body.confidence,
+    detectedAt: body.detectedAt,
+    eventType: body.eventType,
+    screenshotPath: body.screenshotPath,
+    screenshot: body.screenshot,
+  });
+  if (!parsed.ok) return jsonError(400, parsed.error);
+  const { deviceId, confidence, detectedAt, screenshotPath } = parsed.value;
 
-    const { deviceId, confidence, detectedAt, eventType, screenshot } = body as {
-        deviceId?: string;
-        confidence?: number;
-        detectedAt?: string;
-        eventType?: string;
-        screenshot?: string;
-    };
+  const isLegacyLocal = screenshotPath?.startsWith("screenshots/") ?? false;
+  if (screenshotPath && !isLegacyLocal && !isValidScreenshotPath(screenshotPath, deviceId)) {
+    return jsonError(400, `screenshotPath must look like ${deviceId}/<name>.jpg`);
+  }
 
-    // console.log({ deviceId, confidence, detectedAt, eventType })
-
-    if (!deviceId || typeof confidence !== "number" || !detectedAt || eventType !== "fall") {
-        return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
-    }
-
-    console.log({ body })
-
-    const sensor = await prisma.sensor.findUnique({
-        where: { deviceId },
-        select: {
-            room: {
-                select: { id: true, label: true, residentId: true, floor: { select: { facilityId: true } } },
-            },
+  const sensor = await prisma.sensor.findUnique({
+    where: { deviceId },
+    include: {
+      room: {
+        include: {
+          resident: { select: { id: true, firstName: true, lastName: true } },
+          floor: { select: { facilityId: true } },
         },
-    });
+      },
+    },
+  });
+  if (!sensor?.room) return jsonError(404, `Unknown device ${deviceId}`);
+  const room = sensor.room;
+  if (!room.resident) return jsonError(404, `Room ${room.label} has no resident assigned`);
 
-    // console.log({ sensor })
+  const open = await findOpenIncident(room.id);
+  if (open) return NextResponse.json({ status: "already_open", incidentId: open.id });
 
-    if (!sensor?.room) {
-        return NextResponse.json({ error: `Unknown device ${deviceId}` }, { status: 404 });
-    }
+  const resident = room.resident;
+  const rounded = Math.round(confidence);
 
-    const room = sensor.room;
-
-    // console.log({ room })
-
-    if (!room.residentId) {
-        return NextResponse.json({ error: "Room has no resident." }, { status: 404 });
-    }
-
-    const facilityId = room.floor.facilityId;
-
-    // console.log({ facilityId })
-
-    // if (confidence < CONFIDENCE_THRESHOLD) {
-    //     // console.log({ confidence })
-    //     await prisma.activityLogEntry.create({
-    //         data: {
-    //             facilityId,
-    //             type: "SENSOR_DEGRADED", // no LOW_CONFIDENCE_DETECTION in your ActivityType enum — see note below
-    //             message: `Low-confidence detection in Room ${room.label} (${confidence}%)`,
-    //             roomId: room.id,
-    //         },
-    //     });
-    //     return NextResponse.json({ status: "logged_below_threshold" });
-    // }
-
-    const existingOpen = await prisma.incident.findFirst({
-        where: { roomId: room.id, state: { in: ["ACTIVE", "ACKNOWLEDGED"] } },
-    });
-
-    // console.log({ existingOpen })
-
-    if (existingOpen) {
-        return NextResponse.json({ status: "already_open", incidentId: existingOpen.id });
-    }
-
-    // screenshot arrives as an absolute path like
-    // "/Volumes/.../frontend/public/screenshots/CAM-1_....jpg"
-    // Strip everything up to and including "public/" so it becomes a
-    // web-accessible path: "screenshots/CAM-1_....jpg"
-    let screenshotPath: string | null = null;
-    if (screenshot) {
-        const publicIdx = screenshot.replace(/\\/g, "/").indexOf("public/");
-        screenshotPath = publicIdx !== -1
-            ? screenshot.replace(/\\/g, "/").slice(publicIdx + "public/".length)
-            : null;
-    }
-
-    const incident = await prisma.incident.create({
+  try {
+    const incident = await prisma.$transaction(async (tx) => {
+      const created = await tx.incident.create({
         data: {
-            roomId: room.id,
-            residentId: room.residentId,
-            state: "ACTIVE",
-            confidence,
-            detectedAt: new Date(detectedAt),
-            screenshotPath,
+          roomId: room.id,
+          residentId: resident.id,
+          state: "ACTIVE",
+          confidence: rounded, // rounded in case the column is an Int (TDS §5.1: 0–100)
+          detectedAt,
+          screenshotPath,
         },
-    });
-
-    await prisma.activityLogEntry.create({
+      });
+      await tx.activityLogEntry.create({
         data: {
-            facilityId,
-            type: "INCIDENT_DETECTED",
-            message: `Fall detected in Room ${room.label}`,
-            incidentId: incident.id,
-            roomId: room.id,
+          facilityId: room.floor.facilityId,
+          type: "INCIDENT_DETECTED",
+          incidentId: created.id,
+          roomId: room.id,
+          message: `Possible fall in Room ${room.label}: ${resident.firstName} ${resident.lastName} (${rounded}% confidence)`,
         },
+      });
+      await tx.sensor.update({ where: { id: sensor.id }, data: { lastSeenAt: new Date() } });
+      return created;
     });
-
     return NextResponse.json({ roomId: room.id, incidentId: incident.id }, { status: 201 });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      // Two alerts raced; the partial unique index let only one through.
+      const winner = await findOpenIncident(room.id);
+      return NextResponse.json({ status: "already_open", incidentId: winner?.id ?? null });
+    }
+    throw err;
+  }
 }

@@ -101,10 +101,11 @@ model Facility {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  floors    Floor[]
-  users     User[]
-  residents Resident[]
-  activity  ActivityLogEntry[]
+  floors         Floor[]
+  users          User[]
+  residents      Resident[]
+  activity       ActivityLogEntry[]
+  detectionNodes DetectionNode[]
 
   @@map("facilities")
 }
@@ -227,6 +228,10 @@ model Sensor {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  nodeId String?
+  node   DetectionNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+
+  @@index([nodeId])
   @@map("sensors")
 }
 
@@ -338,4 +343,23 @@ model SavedView {
   createdAt DateTime @default(now())
 
   @@map("saved_views")
+}
+
+model DetectionNode {
+  id              String    @id @default(cuid())
+  facilityId      String
+  /// Stable ID from backend/.env NODE_KEY, e.g. "floor2-laptop"
+  nodeKey         String    @unique
+  name            String
+  /// Video server base URL reported by the laptop, e.g. "http://192.168.1.50:8002"
+  streamBaseUrl   String?
+  lastHeartbeatAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  sensors  Sensor[]
+
+  @@index([facilityId])
+  @@map("detection_nodes")
 }

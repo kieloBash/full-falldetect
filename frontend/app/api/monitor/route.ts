@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { projectRoom, ROOM_INCLUDE, type RoomRow } from "@/lib/live-monitor-server/projection";
 import { requireSession } from "@/lib/live-monitor-server/require-session";
 import { NextResponse } from "next/server";
+import { withSignedScreenshots } from "@/lib/detection-node-server/supabase-storage";
 
 /** GET /api/monitor?floor=2 — the room roster for a floor, projected to UI shape. */
 export async function GET(req: Request) {
@@ -34,5 +35,6 @@ export async function GET(req: Request) {
     orderBy: { label: "asc" },
   }));
 
-  return NextResponse.json(rows.map(projectRoom));
+  // return NextResponse.json(rows.map(projectRoom));
+  return NextResponse.json(await withSignedScreenshots(rows.map(projectRoom)));
 }
