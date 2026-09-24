@@ -73,18 +73,6 @@ async function main() {
       lastLoginAt: min(5),
     },
   });
-  const nurseKel = await prisma.user.create({
-    data: {
-      facilityId: facility.id,
-      firstName: 'Kel',
-      lastName: 'Bash',
-      email: 'kel@bash.example',
-      passwordHash: PW,
-      role: UserRole.NURSE,
-      emailVerifiedAt: day(90),
-      lastLoginAt: min(2),
-    },
-  });
   const nurseAda = await prisma.user.create({
     data: {
       facilityId: facility.id,

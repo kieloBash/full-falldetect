@@ -1,16 +1,39 @@
-import axios from "axios";
+// location: frontend/lib/api/client.ts
+// Replaces the unused axios instance from the TDS (§3.1). Safe to overwrite: nothing imported it yet.
+import axios, { AxiosError } from "axios";
 
-/**
- * Shared axios instance for the app. Point `NEXT_PUBLIC_API_BASE_URL` at
- * your backend; falls back to same-origin `/api` so it also works behind a
- * Next.js route-handler proxy.
- *
- * Not yet called anywhere — feature API layers (e.g.
- * `lib/live-monitor/api.ts`) currently return mock data. Each has a
- * `TODO(api)` comment showing the exact call to make through this client
- * once a backend exists.
- */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api",
-  headers: { "Content-Type": "application/json" },
+  baseURL: "/api",
+  withCredentials: true,
+  headers: { Accept: "application/json" },
 });
+
+apiClient.interceptors.response.use(
+  (response) => {
+    // If an API call is ever redirected to the login page, axios follows it and
+    // gets HTML back. Treat that as an expired session instead of bad data.
+    const contentType = String(response.headers["content-type"] ?? "");
+    if (response.status !== 204 && !contentType.includes("application/json")) {
+      throw new ApiError("Your session has expired. Sign in again.", 401);
+    }
+    return response;
+  },
+  (error: AxiosError<{ error?: string }>) => {
+    const status = error.response?.status ?? 0;
+    const message =
+      error.response?.data?.error ??
+      (status ? `Request failed (${status})` : "Can't reach the server. Check your connection.");
+    return Promise.reject(new ApiError(message, status));
+  },
+);
+
+export default apiClient;
