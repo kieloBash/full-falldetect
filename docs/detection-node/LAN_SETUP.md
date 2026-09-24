@@ -38,11 +38,18 @@ on both laptops:
 
 ```powershell
 # On laptop 2 (laptop 1's app must be running):
+<<<<<<< HEAD
 ipconfig
 Test-NetConnection <IP> -Port 3000     # use laptop 1's IP
 nc -vz <IP> 3000 # mac
 # On laptop 1 (demo_stream.py or main.py must be running on laptop 2):
 Test-NetConnection <IP> -Port 8002     # use laptop 2's IP
+=======
+Test-NetConnection 192.168.1.10 -Port 3000     # use laptop 1's IP
+nc -vz 192.168.68.113 3000 # mac
+# On laptop 1 (demo_stream.py or main.py must be running on laptop 2):
+Test-NetConnection 192.168.1.50 -Port 8002     # use laptop 2's IP
+>>>>>>> dc3eff9011c82213c9f72ebb2829d0f415d349b7
 ```
 
 `TcpTestSucceeded : True` means it works. Don't use `ping` for this test: Windows blocks ping
