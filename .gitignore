@@ -45,3 +45,4 @@ backend/screenshots/*
 backend/.env
 frontend/public/screenshots/*
 modules/
+secrets/
