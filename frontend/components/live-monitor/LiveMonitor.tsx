@@ -1,3 +1,4 @@
+// location: frontend/components/live-monitor/LiveMonitor.tsx
 "use client";
 
 import { useLiveMonitor, type UseLiveMonitorOptions } from "@/lib/live-monitor/useLiveMonitor";
@@ -12,7 +13,7 @@ import { RoomGrid } from "./RoomGrid";
 import { Sidebar } from "./Sidebar";
 import { ToastStack } from "./ToastStack";
 import { Toolbar } from "./Toolbar";
-import { TopBar } from "./TopBar";
+import { TopBar } from "@/components/live-monitor/TopBar";
 
 export type LiveMonitorProps = UseLiveMonitorOptions;
 
@@ -50,7 +51,7 @@ export function LiveMonitor(props: LiveMonitorProps) {
         searchInputRef={m.searchInputRef as any}
         muted={m.muted}
         onToggleMuted={m.toggleMuted}
-        onSimulateFall={(e) => m.simulateFall(e)}
+        onSimulateFall={() => m.simulateFall()}
         onlineCount={m.onlineCount}
         totalCount={m.roomsOnFloor.length}
         anySensorDown={m.anySensorDown}

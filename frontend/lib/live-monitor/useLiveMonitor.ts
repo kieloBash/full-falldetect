@@ -1,3 +1,4 @@
+// location: frontend/lib/live-monitor/useLiveMonitor.ts
 "use client";
 
 import { Floor } from "@/app/generated/prisma/client";
@@ -146,20 +147,19 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   /* ── Actions ────────────────────────────────────────────────────────── */
 
   const simulateFallMutation = useSimulateFallMutation();
+  /** Omit roomId to let the server pick a random eligible room on the current floor (id). */
   const simulateFall = useCallback(
-    (roomId: string) => {
-      if (!floor) return
+    (roomId?: string) => {
+      if (!floor) return;
       simulateFallMutation.mutate(
         { roomId, floor },
         {
           onSuccess: ({ roomId }) => {
-            console.log({ roomId })
             setSelectedId(roomId);
             beep();
           },
           onError: (e) => {
-            console.log({ e })
-            toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600")
+            toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600");
           },
         }
       );

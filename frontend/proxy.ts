@@ -10,7 +10,8 @@ import { jwtVerify } from "jose";
 const SESSION_COOKIE = "fd_session";
 const ISSUER = "falldetect";
 
-const PUBLIC_API = ["/api/auth", "/api/facilities", "/api/monitor/ingest", "/api/monitor/heartbeat"];
+// /api/auth/register and /api/facilities were removed: admins create accounts.
+const PUBLIC_API = ["/api/auth", "/api/monitor/ingest", "/api/monitor/heartbeat"];
 const ADMIN_ONLY = ["/admin", "/api/admin", "/api/detection-nodes"];
 
 function matches(pathname: string, prefixes: string[]): boolean {

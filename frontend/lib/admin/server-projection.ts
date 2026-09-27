@@ -1,3 +1,4 @@
+// location: frontend/lib/admin/server-projection.ts
 import "server-only";
 import type { Floor, Patient, Room, SensorStatus } from "./types";
 
@@ -5,8 +6,9 @@ import type { Floor, Patient, Room, SensorStatus } from "./types";
  * Projects normalized DB rows into the flat Admin UI shapes. Three resources,
  * each its own projector. Mapping decisions:
  *  - Floor: UI `name` ← Floor.label; `wing` is display-only (from facility).
- *  - Room: flattens Room + Sensor. UI `sensorId` ← Sensor.deviceLabel,
- *    `status` ← Sensor.status. Writes touch Room + Sensor only.
+ *  - Room: flattens Room + Sensor. UI `sensorId` ← Sensor.deviceId (the ID the
+ *    camera laptop sends in alerts/heartbeats; falls back to the old deviceLabel
+ *    for rows created before fix #10). `status` ← Sensor.status.
  *  - Patient: maps to Resident. UI `roomId` is the INVERSE of the schema —
  *    the room lives on Room.residentId, so we read resident.room?.id. `notes`
  *    and `discharged` are real columns (added by migration).
@@ -26,13 +28,31 @@ export function projectFloor(row: FloorRow, wing: string): Floor {
   return { id: row.id, name: row.label, wing };
 }
 
+/** Prisma `select` for RoomRow — keep in sync with the interface below. */
+export const ROOM_SELECT = {
+  id: true,
+  label: true,
+  floorId: true,
+  sensor: { select: { deviceId: true, deviceLabel: true, status: true } },
+} as const;
+
+/**
+ * Normalizes a typed sensor/device ID: trimmed, "" → null. Case is kept as typed
+ * because ingest matches Sensor.deviceId exactly against backend/.env CAMERA_ID_MAP.
+ */
+export function normalizeDeviceId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  return v === "" ? null : v;
+}
+
 /* ── Room ──────────────────────────────────────────────────────────────── */
 
 export interface RoomRow {
   id: string;
   label: string;
   floorId: string;
-  sensor: { deviceLabel: string | null; status: string } | null;
+  sensor: { deviceId: string | null; deviceLabel: string | null; status: string } | null;
 }
 
 export function projectRoom(row: RoomRow): Room {
@@ -40,7 +60,7 @@ export function projectRoom(row: RoomRow): Room {
     id: row.id,
     room: row.label,
     floorId: row.floorId,
-    sensorId: row.sensor?.deviceLabel ?? "",
+    sensorId: row.sensor?.deviceId ?? row.sensor?.deviceLabel ?? "",
     status: row.sensor ? SENSOR_TO_UI[row.sensor.status] ?? "offline" : "offline",
   };
 }

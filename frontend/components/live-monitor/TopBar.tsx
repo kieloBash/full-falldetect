@@ -1,3 +1,4 @@
+// location: frontend/components/live-monitor/TopBar.tsx
 "use client";
 
 import { Icon } from "@/components/icons/Icon";
@@ -6,6 +7,12 @@ import type { FloorId } from "@/lib/live-monitor/types";
 import type { RefObject } from "react";
 import { ProfileDropdown } from "../ui/profile-dropdown";
 
+/**
+ * The Simulate Fall button creates real incident records, so it is hidden unless
+ * NEXT_PUBLIC_SHOW_SIMULATE_FALL=true (set it for testing and demos, not for a shift).
+ */
+const SHOW_SIMULATE_FALL = process.env.NEXT_PUBLIC_SHOW_SIMULATE_FALL === "true";
+
 export interface TopBarProps {
   floor: FloorId;
   query: string;
@@ -13,7 +20,8 @@ export interface TopBarProps {
   searchInputRef: RefObject<HTMLInputElement>;
   muted: boolean;
   onToggleMuted: () => void;
-  onSimulateFall: (roomId: string) => void;
+  /** Creates a simulated fall in a random eligible room on the current floor. */
+  onSimulateFall: () => void;
   onlineCount: number;
   totalCount: number;
   anySensorDown: boolean;
@@ -60,15 +68,17 @@ export function TopBar({
       </div>
 
       <div className="flex items-center gap-2">
-        {/* <button
-          type="button"
-          onClick={() => onSimulateFall("cms1vshsx0009pdkhzl2x3gbr")}
-          title="Demo: trigger a simulated fall"
-          className="flex items-center gap-[6px] rounded-lg border-[1.5px] border-dashed border-teal-600 bg-teal-50 px-3 py-[7px] text-[12.5px] font-semibold text-teal-700 hover:bg-teal-100"
-        >
-          <Icon name="play" size={13} fill="currentColor" strokeWidth={0} />
-          {COPY.simulateFallLabel}
-        </button> */}
+        {SHOW_SIMULATE_FALL && (
+          <button
+            type="button"
+            onClick={onSimulateFall}
+            title="Demo: trigger a simulated fall"
+            className="flex items-center gap-[6px] rounded-lg border-[1.5px] border-dashed border-teal-600 bg-teal-50 px-3 py-[7px] text-[12.5px] font-semibold text-teal-700 hover:bg-teal-100"
+          >
+            <Icon name="play" size={13} fill="currentColor" strokeWidth={0} />
+            {COPY.simulateFallLabel}
+          </button>
+        )}
 
         <div className="h-[26px] w-px bg-slate-200" />
 

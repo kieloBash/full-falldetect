@@ -1,6 +1,7 @@
+// location: frontend/components/admin/AddEditPatientModal.tsx
 import { COPY } from "@/lib/admin/constants";
 import type { PatientFormValues } from "@/lib/admin/types";
-import { ModalShell } from "./ModalShell";
+import { ModalShell } from "@/components/admin/ModalShell";
 import { ModalCheckboxField } from "./fields/ModalCheckboxField";
 import { ModalSelectField } from "./fields/ModalSelectField";
 import { ModalTextareaField } from "./fields/ModalTextareaField";
@@ -14,15 +15,17 @@ export interface AddEditPatientModalProps {
   onCancel: () => void;
   onSave: () => void;
   saving: boolean;
+  error?: string | null;
 }
 
 /** Add/edit patient modal: name, room assignment (or unassigned), care notes, and — when editing — a discharge toggle. */
-export function AddEditPatientModal({ values, roomOptions, onFieldChange, isEditing, onCancel, onSave, saving }: AddEditPatientModalProps) {
+export function AddEditPatientModal({ values, roomOptions, onFieldChange, isEditing, onCancel, onSave, saving, error }: AddEditPatientModalProps) {
   return (
     <ModalShell
       title={isEditing ? COPY.patient.modalTitleEdit : COPY.patient.modalTitleAdd}
       widthClassName="w-[460px]"
       onClose={onCancel}
+      error={error}
       footer={
         <>
           <button

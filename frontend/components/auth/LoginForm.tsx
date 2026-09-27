@@ -1,3 +1,4 @@
+// location: frontend/components/auth/LoginForm.tsx
 import { COPY } from "@/lib/auth/constants";
 import type { UseAuthFormReturn } from "@/lib/auth/useAuthForm";
 import { Icon } from "@/components/icons/Icon";
@@ -8,11 +9,13 @@ import { TextField } from "./fields/TextField";
 
 export interface LoginFormProps {
   form: UseAuthFormReturn["login"];
-  onSwitchToRegister: () => void;
 }
 
-/** The "Sign in" tab's content: credentials form, SSO fallback, and a link over to registration. */
-export function LoginForm({ form, onSwitchToRegister }: LoginFormProps) {
+/**
+ * Sign-in form. There is no self-registration: accounts are created by an
+ * administrator in Admin → User Management, who also resets forgotten passwords.
+ */
+export function LoginForm({ form }: LoginFormProps) {
   return (
     <div className="mt-7 flex flex-1 flex-col">
       <h1 className="m-0 text-[22px] font-semibold tracking-tight text-slate-900">{COPY.loginTitle}</h1>
@@ -37,10 +40,9 @@ export function LoginForm({ form, onSwitchToRegister }: LoginFormProps) {
           error={form.error || undefined}
           visibilityToggle={{ visible: form.passwordVisible, onToggle: form.onTogglePasswordVisible }}
           labelRight={
-            // TODO(auth): point at a real "forgot password" route.
-            <a href="#" onClick={(e) => e.preventDefault()} className="text-[12.5px] font-semibold">
+            <span title={COPY.forgotPasswordHint} className="cursor-help text-[12.5px] font-semibold text-slate-500">
               Forgot password?
-            </a>
+            </span>
           }
         />
 
@@ -68,18 +70,7 @@ export function LoginForm({ form, onSwitchToRegister }: LoginFormProps) {
 
       <div className="flex-1" />
 
-      <div className="mt-[22px] text-center text-[13px] text-slate-600">
-        {COPY.noAccountPrompt}{" "}
-        <a
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            onSwitchToRegister();
-          }}
-        >
-          Create an account
-        </a>
-      </div>
+      <div className="mt-[22px] text-center text-[13px] text-slate-600">{COPY.noAccountPrompt}</div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+// location: frontend/lib/admin/constants.ts
 import type { SensorStatus } from "./types";
 
 interface PillMeta {
@@ -40,7 +41,12 @@ export const COPY = {
     addFloor: "Add floor",
     tableSubtitle: "Rooms, residents, and sensor assignments for this floor",
     noRooms: "No rooms on this floor yet. Add rooms from Room Management.",
+    noFloors: "No floors yet. Click \"Add floor\" to create the first one.",
     modalTitle: "Add floor",
+    modalTitleEdit: "Rename floor",
+    modalSaveEdit: "Save changes",
+    rename: "Rename",
+    delete: "Delete floor",
   },
 
   room: {
@@ -48,6 +54,7 @@ export const COPY = {
     countLine: (rooms: number, floors: number) => `${rooms} room${rooms === 1 ? "" : "s"} across ${floors} floor${floors === 1 ? "" : "s"}`,
     addRoom: "Add room",
     noRooms: "No rooms yet.",
+    needFloorFirst: "Create a floor in Floor Management before adding rooms.",
     modalTitleAdd: "Add room",
     modalTitleEdit: "Edit room",
     modalSaveAdd: "Add room",
@@ -83,9 +90,8 @@ export const ADMIN_ROUTES = [
   { key: "floors", label: "Floor Management", icon: "building", path: "/admin" },
   { key: "rooms", label: "Room Management", icon: "rooms", path: "/admin/rooms" },
   { key: "patients", label: "Patient Management", icon: "users", path: "/admin/patients" },
+  { key: "users", label: "User Management", icon: "userCheck", path: "/admin/users" },
+  { key: "detection-nodes", label: "Camera Laptops", icon: "camera", path: "/admin/detection-nodes" },
 ] as const;
 
-export const ADMIN_SOON_NAV = [
-  { key: "users", label: "Users", icon: "users" },
-  { key: "settings", label: "Settings", icon: "settings" },
-] as const;
+export const ADMIN_SOON_NAV = [{ key: "settings", label: "Settings", icon: "settings" }] as const;

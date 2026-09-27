@@ -4,10 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:lan": "next dev -H 0.0.0.0 -p 3000",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",
-    "lint": "eslint"
+    "start:lan": "next start -H 0.0.0.0 -p 3000",
+    "lint": "eslint",
+    "seed:demo": "tsx prisma/seed-demo.ts",
+    "seed:nodes": "tsx prisma/seed-detection-node.ts",
+    "simulate:node": "node --env-file=.env scripts/simulate-node.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
