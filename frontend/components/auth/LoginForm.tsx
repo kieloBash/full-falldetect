@@ -1,7 +1,6 @@
 // location: frontend/components/auth/LoginForm.tsx
 import { COPY } from "@/lib/auth/constants";
 import type { UseAuthFormReturn } from "@/lib/auth/useAuthForm";
-import { Icon } from "@/components/icons/Icon";
 import { Checkbox } from "./fields/Checkbox";
 import { PasswordField } from "./fields/PasswordField";
 import { SubmitButton } from "./fields/SubmitButton";
@@ -28,7 +27,7 @@ export function LoginForm({ form }: LoginFormProps) {
         }}
         className="mt-[26px] flex flex-col gap-4"
       >
-        <TextField id="login-email" label="Work email" type="email" value={form.email} onChange={form.onEmailChange} placeholder="you@sunrisesenior.com" autoComplete="email" />
+        <TextField id="login-email" label="Work email" type="email" value={form.email} onChange={form.onEmailChange} placeholder="you@facility.example" autoComplete="email" />
 
         <PasswordField
           id="login-password"
@@ -52,21 +51,6 @@ export function LoginForm({ form }: LoginFormProps) {
 
         <SubmitButton busy={form.busy}>Sign in</SubmitButton>
       </form>
-
-      {/* <div className="mt-[22px] flex items-center gap-3 text-slate-300">
-        <div className="h-px flex-1 bg-slate-200" />
-        <span className="text-[11.5px] font-medium text-slate-400">or</span>
-        <div className="h-px flex-1 bg-slate-200" />
-      </div>
- */}
-      {/* <button
-        type="button"
-        onClick={form.onSsoLogin}
-        className="mt-4 flex h-11 items-center justify-center gap-[9px] rounded-[9px] border border-slate-200 bg-white text-[13.5px] font-semibold text-slate-700 hover:bg-slate-50"
-      >
-        <Icon name="lock" size={16} />
-        {COPY.ssoLabel}
-      </button> */}
 
       <div className="flex-1" />
 

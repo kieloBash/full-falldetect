@@ -73,7 +73,6 @@ export function useAuthForm(options: UseAuthFormOptions = {}) {
       error,
       busy: loginMutation.isPending,
       onSubmit: submitLogin,
-      onSsoLogin: submitLogin,
     },
   };
 }

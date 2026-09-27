@@ -1,8 +1,9 @@
 // location: frontend/components/live-monitor/LiveMonitor.tsx
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
+import { EnableSoundBar } from "@/components/alert-sound/EnableSoundBar";
 import { useLiveMonitor, type UseLiveMonitorOptions } from "@/lib/live-monitor/useLiveMonitor";
-import { useEffect, useRef, useState } from "react";
 import { ActiveAlertBanner } from "./ActiveAlertBanner";
 import { CameraModal } from "./CameraModal";
 import { CameraWall } from "./CameraWall";
@@ -13,69 +14,78 @@ import { RoomGrid } from "./RoomGrid";
 import { Sidebar } from "./Sidebar";
 import { ToastStack } from "./ToastStack";
 import { Toolbar } from "./Toolbar";
-import { TopBar } from "@/components/live-monitor/TopBar";
+import { TopBar } from "./TopBar";
 
 export type LiveMonitorProps = UseLiveMonitorOptions;
 
 /**
  * FallDetect — Live Monitor.
  *
- * The on-shift nurse's default landing screen: every monitored room as a
- * live-status tile (or, in Camera wall view, a live CCTV feed for pinned
- * rooms), a right-hand inspector for the selected room, and the full
- * fall-response lifecycle — Acknowledge → Mark resolved, or Flag false alarm
- * with a required reason.
- *
+ * The on-shift nurse's screen: every room on the selected floor as a live-status
+ * tile (or live camera feeds for pinned rooms), the inspector for the selected room,
+ * and the response flow — Acknowledge → Mark resolved, or Flag false alarm.
+ * Falls on ANY floor raise the pop-up, the red banner and the looping alarm.
  */
 export function LiveMonitor(props: LiveMonitorProps) {
   const m = useLiveMonitor(props);
+  const activeCount = m.activeRooms.length;
 
-  // Modal is dismissible per-alert-wave, but pops back open whenever the
-  // active count goes UP (i.e. a new fall fires), even if a previous one
-  // was already dismissed.
+  // The pop-up can be hidden, but comes back whenever a NEW fall is detected.
   const [modalDismissed, setModalDismissed] = useState(false);
-  const prevActiveCountRef = useRef(m.activeCount);
+  const seenIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (m.activeCount > prevActiveCountRef.current) {
-      setModalDismissed(false);
-    }
-    prevActiveCountRef.current = m.activeCount;
-  }, [m.activeCount]);
+    const ids = m.activeRooms.map((r) => r.id);
+    if (ids.some((id) => !seenIdsRef.current.has(id))) setModalDismissed(false);
+    seenIdsRef.current = new Set(ids);
+  }, [m.activeRooms]);
+
+  const activeByFloor = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of m.activeRooms) counts[r.floor.id] = (counts[r.floor.id] ?? 0) + 1;
+    return counts;
+  }, [m.activeRooms]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden font-sans tabular-nums text-slate-900" style={{ background: "#F1F5F9" }}>
       <TopBar
-        floor={m.floor ?? ""}
         query={m.query}
         onQueryChange={m.setQuery}
-        searchInputRef={m.searchInputRef as any}
-        muted={m.muted}
-        onToggleMuted={m.toggleMuted}
+        searchInputRef={m.searchInputRef}
         onSimulateFall={() => m.simulateFall()}
         onlineCount={m.onlineCount}
         totalCount={m.roomsOnFloor.length}
         anySensorDown={m.anySensorDown}
+        alarm={{
+          ringing: m.sound.ringing,
+          snoozed: m.sound.snoozed,
+          secondsLeft: m.sound.snoozeSecondsLeft,
+          onSilence: m.sound.snooze,
+        }}
       />
 
+      {m.sound.blocked && <EnableSoundBar onEnable={m.sound.enable} />}
+
       <FallAlertModal
-        activeCount={modalDismissed ? 0 : m.activeCount}
-        activeRoom={m.sortedRooms.find(r => r.alertState === "active") ?? null}
+        activeCount={modalDismissed ? 0 : activeCount}
+        activeRoom={m.firstActiveRoom}
         reducedMotion={m.reducedMotion}
         onJumpToAlert={() => {
           setModalDismissed(true);
           m.jumpToFirstActiveAlert();
         }}
+        onAcknowledge={() => m.firstActiveRoom && m.acknowledge(m.firstActiveRoom.id)}
         onDismiss={() => setModalDismissed(true)}
       />
-      <ActiveAlertBanner activeCount={m.activeCount} reducedMotion={m.reducedMotion} onJumpToAlert={m.jumpToFirstActiveAlert} />
+      <ActiveAlertBanner
+        activeCount={activeCount}
+        firstRoom={m.firstActiveRoom}
+        currentFloorId={m.floor}
+        reducedMotion={m.reducedMotion}
+        onJumpToAlert={m.jumpToFirstActiveAlert}
+      />
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          pinnedRooms={m.pinnedRooms}
-          onSelectPinnedRoom={m.focusRoom}
-          onUnpin={m.togglePin}
-          onNavigateOutOfScope={m.notifyOutOfScope}
-        />
+        <Sidebar pinnedRooms={m.pinnedRooms} onSelectPinnedRoom={(room) => m.focusRoom(room)} onUnpin={m.togglePin} />
 
         <main className="flex min-w-0 flex-1 flex-col">
           <Toolbar
@@ -85,9 +95,15 @@ export function LiveMonitor(props: LiveMonitorProps) {
             onFloorChange={m.selectFloor}
             onViewChange={m.setView}
             floors={m.floors}
+            activeByFloor={activeByFloor}
           />
 
           <div className="flex-1 overflow-auto" style={{ background: "#F1F5F9" }}>
+            {!m.roomsLoading && m.floors.length === 0 && (
+              <div className="px-6 py-10 text-center text-[13.5px] text-slate-500">
+                No floors or rooms yet. An administrator can add them in Administration.
+              </div>
+            )}
             {m.view === "grid" && (
               <RoomGrid
                 rooms={m.sortedRooms}
@@ -106,7 +122,10 @@ export function LiveMonitor(props: LiveMonitorProps) {
                 rooms={m.pinnedRooms}
                 now={m.now}
                 reducedMotion={m.reducedMotion}
-                onSelect={m.selectRoom}
+                onSelect={(id) => {
+                  const room = m.pinnedRooms.find((r) => r.id === id);
+                  if (room) m.focusRoom(room, true);
+                }}
                 onExpand={m.openCameraModal}
                 onAcknowledge={m.acknowledge}
                 onFlagFalseAlarm={m.openFalseAlarmDialog}
@@ -119,9 +138,9 @@ export function LiveMonitor(props: LiveMonitorProps) {
         <aside className="w-[360px] flex-none overflow-y-auto border-l border-slate-200 bg-white">
           <Inspector
             room={m.selectedRoom}
-            floorLabel={`Floor ${m.floor}`}
+            floorLabel={m.floorLabel ? `Floor ${m.floorLabel}` : ""}
             pinned={m.selectedRoom ? m.isPinned(m.selectedRoom.id) : false}
-            activeCount={m.activeCount}
+            activeCount={m.activeCountOnFloor}
             clearCount={m.clearCount}
             activity={m.activity}
             now={m.now}

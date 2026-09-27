@@ -31,7 +31,6 @@ export const PATIENT_TABLE_GRID_COLS = "grid-cols-[1fr_110px_1fr_100px_80px]";
 
 export const COPY = {
   badge: "Admin",
-  breadcrumbBase: "Sunrise Wing",
   vacant: "Vacant",
   unassigned: "Unassigned",
 
@@ -76,10 +75,7 @@ export const COPY = {
   },
 } as const;
 
-export const ADMIN_MONITORING_NAV = [
-  { key: "live-monitor", label: "Live Monitor", icon: "grid", href: "/live-monitor" },
-  { key: "incidents", label: "Incidents", icon: "fileText", href: null },
-] as const;
+export const ADMIN_MONITORING_NAV = [{ key: "live-monitor", label: "Live Monitor", icon: "grid", href: "/live-monitor" }] as const;
 
 /**
  * The three Admin routes, each its own page — not switchable views in one
@@ -94,4 +90,3 @@ export const ADMIN_ROUTES = [
   { key: "detection-nodes", label: "Camera Laptops", icon: "camera", path: "/admin/detection-nodes" },
 ] as const;
 
-export const ADMIN_SOON_NAV = [{ key: "settings", label: "Settings", icon: "settings" }] as const;

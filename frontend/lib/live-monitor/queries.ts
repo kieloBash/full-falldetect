@@ -1,8 +1,9 @@
+// location: frontend/lib/live-monitor/queries.ts
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "./api";
-import type { FloorId } from "./types";
+import type { FloorId, Room } from "./types";
 
 /** Query key namespace; rooms are keyed by floor so switching floors refetches. */
 export const liveMonitorKeys = {
@@ -12,18 +13,30 @@ export const liveMonitorKeys = {
   activity: ["live-monitor", "activity"] as const,
 };
 
+const ROOM_POLL = {
+  staleTime: 2_000,
+  refetchInterval: 3_000, // poll every 3 s
+  refetchIntervalInBackground: true, // keep polling when the tab isn't focused — it's a monitoring screen
+} as const;
+
 /**
- * Room roster for a floor, fetched from `GET /api/monitor?floor=`. The DB is
- * the source of truth, so actions invalidate this query (see the mutations'
- * `onSuccess`) and the grid reflects the new state after a refetch.
+ * Room rosters for EVERY floor (one `GET /api/monitor?floor=` per floor, polled every
+ * 3 s). The Live Monitor needs all floors so a fall on Floor 3 still sounds the alarm
+ * while a nurse is looking at Floor 2. Keys stay per-floor, so mutations that
+ * invalidate ["live-monitor", "rooms"] refresh all of them.
  */
-export function useRoomsQuery(floor: FloorId | null) {
-  return useQuery({
-    queryKey: liveMonitorKeys.rooms(floor ?? ""),
-    queryFn: () => api.fetchRooms(floor),
-    staleTime: 5_000,
-    refetchInterval: 3_000,        // ← poll every 3s
-    refetchIntervalInBackground: true, // keep polling even if the tab isn't focused — worth it for a monitoring screen
+export function useAllRoomsQuery(floorIds: FloorId[]) {
+  return useQueries({
+    queries: floorIds.map((floorId) => ({
+      queryKey: liveMonitorKeys.rooms(floorId),
+      queryFn: () => api.fetchRooms(floorId),
+      ...ROOM_POLL,
+    })),
+    combine: (results) => ({
+      rooms: results.flatMap((r) => r.data ?? []) as Room[],
+      isPending: results.some((r) => r.isPending),
+      isError: results.some((r) => r.isError),
+    }),
   });
 }
 

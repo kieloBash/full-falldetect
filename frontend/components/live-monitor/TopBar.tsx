@@ -2,8 +2,8 @@
 "use client";
 
 import { Icon } from "@/components/icons/Icon";
+import { SilenceButton } from "@/components/alert-sound/SilenceButton";
 import { COPY } from "@/lib/live-monitor/constants";
-import type { FloorId } from "@/lib/live-monitor/types";
 import type { RefObject } from "react";
 import { ProfileDropdown } from "../ui/profile-dropdown";
 
@@ -14,33 +14,28 @@ import { ProfileDropdown } from "../ui/profile-dropdown";
 const SHOW_SIMULATE_FALL = process.env.NEXT_PUBLIC_SHOW_SIMULATE_FALL === "true";
 
 export interface TopBarProps {
-  floor: FloorId;
   query: string;
   onQueryChange: (value: string) => void;
-  searchInputRef: RefObject<HTMLInputElement>;
-  muted: boolean;
-  onToggleMuted: () => void;
+  searchInputRef: RefObject<HTMLInputElement | null>;
   /** Creates a simulated fall in a random eligible room on the current floor. */
   onSimulateFall: () => void;
   onlineCount: number;
   totalCount: number;
   anySensorDown: boolean;
+  alarm: { ringing: boolean; snoozed: boolean; secondsLeft: number; onSilence: () => void };
 }
 
-/** Global chrome: brand, breadcrumb, search (press `/` to focus), demo trigger, mute, sensor health, user menu. */
+/** Global chrome: brand, search (press `/` to focus), demo trigger, silence alarm, sensor health, user menu. */
 export function TopBar({
-  floor,
   query,
   onQueryChange,
   searchInputRef,
-  muted,
-  onToggleMuted,
   onSimulateFall,
   onlineCount,
   totalCount,
   anySensorDown,
+  alarm,
 }: TopBarProps) {
-
   return (
     <header className="z-30 flex h-[60px] flex-none items-center gap-5 border-b border-slate-200 bg-white px-5">
       <div className="flex items-center gap-[10px]">
@@ -49,12 +44,6 @@ export function TopBar({
         </div>
         <span className="text-base font-bold tracking-tight text-slate-900">{COPY.productName}</span>
       </div>
-
-      {/* <div className="flex items-center gap-[7px] text-[13px] text-slate-400">
-        <span>{COPY.breadcrumbBase}</span>
-        <span>&rsaquo;</span>
-        <span className="font-medium text-slate-600">Floor {floor}</span>
-      </div> */}
 
       <div className="relative mx-auto max-w-[420px] flex-1">
         <Icon name="search" size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -82,30 +71,20 @@ export function TopBar({
 
         <div className="h-[26px] w-px bg-slate-200" />
 
-        <button
-          type="button"
-          onClick={onToggleMuted}
-          title={muted ? "Unmute alerts" : "Mute alerts"}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-        >
-          <Icon name={muted ? "volumeOff" : "volume"} size={17} />
-        </button>
+        <SilenceButton
+          ringing={alarm.ringing}
+          snoozed={alarm.snoozed}
+          secondsLeft={alarm.secondsLeft}
+          onSilence={alarm.onSilence}
+        />
 
         <div
-          title="Sensor health"
+          title="Sensors online on this floor"
           className="flex items-center gap-[6px] rounded-lg border border-slate-200 bg-white px-[10px] py-[7px] text-xs font-semibold text-slate-600"
         >
           <span className={`h-[7px] w-[7px] rounded-full ${anySensorDown ? "bg-amber-600" : "bg-green-600"}`} />
           {onlineCount}/{totalCount} online
         </div>
-
-        <button
-          type="button"
-          title="Notifications"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-        >
-          <Icon name="bell" size={17} />
-        </button>
 
         <ProfileDropdown />
       </div>

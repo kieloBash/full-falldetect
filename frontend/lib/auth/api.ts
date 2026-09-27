@@ -21,6 +21,7 @@ export interface ProfileMe {
   email: string;
   firstName: string;
   lastName: string;
+  role: UserRole;
 }
 
 export async function login(values: LoginFormValues): Promise<AuthResult> {

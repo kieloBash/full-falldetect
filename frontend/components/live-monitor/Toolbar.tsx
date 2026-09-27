@@ -1,6 +1,6 @@
-import { Floor } from "@/app/generated/prisma/client";
+// location: frontend/components/live-monitor/Toolbar.tsx
 import { Icon } from "@/components/icons/Icon";
-import type { FloorId, ViewMode } from "@/lib/live-monitor/types";
+import type { Floor, FloorId, ViewMode } from "@/lib/live-monitor/types";
 import { useMemo } from "react";
 
 export interface ToolbarProps {
@@ -8,6 +8,8 @@ export interface ToolbarProps {
   roomCount: number;
   view: ViewMode;
   floors: Floor[];
+  /** Active (unacknowledged) falls per floor id, shown in the floor picker. */
+  activeByFloor: Record<string, number>;
   onFloorChange: (floor: FloorId) => void;
   onViewChange: (view: ViewMode) => void;
 }
@@ -18,7 +20,7 @@ function segmentClass(active: boolean) {
 }
 
 /** Page title/context + floor filter + Grid/Camera-wall view toggle. */
-export function Toolbar({ floor, floors, roomCount, view, onFloorChange, onViewChange }: ToolbarProps) {
+export function Toolbar({ floor, floors, activeByFloor, roomCount, view, onFloorChange, onViewChange }: ToolbarProps) {
 
   const currentFloor = useMemo(() => floors.find((f) => f.id === floor), [floors, floor])
 
@@ -27,7 +29,7 @@ export function Toolbar({ floor, floors, roomCount, view, onFloorChange, onViewC
       <div className="min-w-0">
         <h1 className="m-0 text-xl font-semibold tracking-tight text-slate-900">Live Monitor</h1>
         <div className="mt-[2px] text-[12.5px] text-slate-600">
-          Evening shift · Floor {currentFloor?.label} · {roomCount} rooms monitored
+          {currentFloor ? `Floor ${currentFloor.label} · ` : ""}{roomCount} {roomCount === 1 ? "room" : "rooms"} monitored
         </div>
       </div>
 
@@ -41,6 +43,7 @@ export function Toolbar({ floor, floors, roomCount, view, onFloorChange, onViewC
         {floors.map((opt) => (
           <option key={opt.id} value={opt.id}>
             Floor {opt.label}
+            {activeByFloor[opt.id] ? ` — ${activeByFloor[opt.id]} active fall${activeByFloor[opt.id] === 1 ? "" : "s"}` : ""}
           </option>
         ))}
       </select>

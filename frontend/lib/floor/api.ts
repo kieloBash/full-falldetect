@@ -1,11 +1,9 @@
-import { Floor } from "@/app/generated/prisma/client";
+// location: frontend/lib/floor/api.ts
+import { apiClient } from "@/lib/api/client";
+import type { Floor } from "@/lib/live-monitor/types";
 
-async function json<T>(res: Response): Promise<T> {
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error((data && data.error) || "Request failed.");
-    return data as T;
-}
-
+/** Every floor in the user's facility (GET /api/floors/assigned). */
 export async function fetchFloorsAssigned(): Promise<Floor[]> {
-    return json<Floor[]>(await fetch(`/api/floors/assigned`));
+  const { data } = await apiClient.get<Floor[]>("/floors/assigned");
+  return data;
 }

@@ -1,6 +1,11 @@
+// location: frontend/lib/live-monitor/types.ts
 /** Shared types for the FallDetect Live Monitor screen. */
 
-import { Floor } from "@/app/generated/prisma/client";
+/** A floor as returned by GET /api/floors/assigned and embedded in each Room. */
+export interface Floor {
+  id: string;
+  label: string;
+}
 
 export type AlertState = "idle" | "active" | "acknowledged" | "resolved" | "falsealarm";
 
@@ -20,14 +25,17 @@ export interface Room {
   label: string;
   floor: Floor;
   resident: string;
+  /** Still sent by the API, but not shown: risk can't be set in Patient Management. */
   risk: RiskLevel;
   sensorStatus: SensorStatus;
+  /** Still sent by the API, but not shown: every room gets "Zone A". */
   zone: string;
   initials: string;
   alertState: AlertState;
   startedAt: number | null;
   acknowledgedBy: string | null;
   falseAlarmReason: string | null;
+  /** The open incident only (not past incidents); not shown in the UI. */
   history: History[];
   /** Real AI confidence value (0–100) from the open incident, null when idle. */
   confidence: number | null;

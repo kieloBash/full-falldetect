@@ -1,5 +1,6 @@
+// location: frontend/lib/live-monitor/constants.ts
 import type { IconName } from "@/components/icons/Icon";
-import type { BadgeVariant, EffectiveState, RiskLevel, SensorStatus } from "./types";
+import type { BadgeVariant, EffectiveState, SensorStatus } from "./types";
 
 /**
  * FallDetect design tokens.
@@ -57,18 +58,6 @@ export const BADGE_VARIANT_BY_STATE: Record<EffectiveState, BadgeVariant> = {
   idle: "allclear",
 };
 
-interface RiskMeta {
-  label: string;
-  textClass: string;
-  bgClass: string;
-}
-
-export const RISK_META: Record<RiskLevel, RiskMeta> = {
-  high: { label: "High risk", textClass: "text-amber-700", bgClass: "bg-amber-100" },
-  medium: { label: "Medium risk", textClass: "text-slate-600", bgClass: "bg-slate-100" },
-  low: { label: "Low risk", textClass: "text-slate-500", bgClass: "bg-slate-50" },
-};
-
 interface SensorMeta {
   label: string;
   meta: string;
@@ -76,8 +65,8 @@ interface SensorMeta {
 }
 
 export const SENSOR_META: Record<SensorStatus, SensorMeta> = {
-  offline: { label: "Sensor offline", meta: "Last seen 48m ago", dotClass: "bg-slate-400" },
-  degraded: { label: "Signal degraded", meta: "Calibration due", dotClass: "bg-amber-600" },
+  offline: { label: "Sensor offline", meta: "No heartbeat", dotClass: "bg-slate-400" },
+  degraded: { label: "Signal degraded", meta: "Unstable", dotClass: "bg-amber-600" },
   online: { label: "Sensor online", meta: "Live", dotClass: "bg-green-600" },
 };
 
@@ -91,17 +80,10 @@ export const STATE_DOT_CLASS: Record<EffectiveState, string> = {
   idle: "bg-green-600",
 };
 
-export const FLOOR_OPTIONS: { value: "2" | "3"; label: string }[] = [
-  { value: "2", label: "Floor 2 — Sunrise Wing" },
-  { value: "3", label: "Floor 3 — Sunrise Wing" },
-];
-
 export const COPY = {
   productName: "FallDetect",
-  breadcrumbBase: "Sunrise Wing",
-  searchPlaceholder: "Search residents, rooms, or incidents",
+  searchPlaceholder: "Search residents or rooms",
   simulateFallLabel: "Simulate fall",
-  navOnlyLiveMonitorToast: "This handoff covers Live Monitor only",
   noRoomsMatch: "No rooms match your search",
   clearSearch: "Clear search",
   noPinnedSide: "No pinned rooms",
@@ -110,12 +92,6 @@ export const COPY = {
     'Select a room and choose "Pin to camera wall" in its detail panel to watch its live feed here.',
   cameraOffline: "Camera offline",
   privacyNote:
-    "AI continuously analyses the in-room CCTV feed and flags falls automatically. Streams are encrypted end-to-end and every view is access-logged.",
+    "AI watches each in-room camera and raises an alert when the resident leaves the bed. Live video needs a short-lived access token from this dashboard.",
 } as const;
 
-export const NAV_ITEMS = [
-  { key: "monitor", label: "Live Monitor", icon: "grid", active: true },
-  // { key: "incidents", label: "Incidents", icon: "wall", active: false },
-  // { key: "analytics", label: "Analytics", icon: "wall", active: false },
-  // { key: "settings", label: "Settings", icon: "wall", active: false },
-] as const;
