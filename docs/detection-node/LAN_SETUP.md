@@ -3,7 +3,7 @@
 
 | | Laptop 1 — head nurse | Laptop 2 — camera laptop |
 |---|---|---|
-| Runs | Next.js web app, PostgreSQL | Python detection service, YOLO, webcams, video server |
+| Runs | Next.js web app (database is on Supabase) | Python detection service, YOLO, webcams, video server |
 | Listens on | port **3000** (alerts, heartbeats) | port **8002** (live video) |
 | Needs internet | Yes, to show screenshots (Supabase) | Yes, to upload screenshots (Supabase) |
 | Opens | `http://localhost:3000` | — |
@@ -15,7 +15,7 @@ flowchart LR
     DET --> VS[Video server :8002]
   end
   subgraph L1[Laptop 1 · head nurse]
-    APP[Next.js :3000] --> DB[(PostgreSQL)]
+    APP[Next.js :3000] --> DB[(Supabase Postgres)]
     BR[Browser] -->|localhost:3000| APP
   end
   DET -->|alerts + heartbeat<br/>http://laptop1:3000| APP
@@ -38,18 +38,10 @@ on both laptops:
 
 ```powershell
 # On laptop 2 (laptop 1's app must be running):
-<<<<<<< HEAD
-ipconfig
-Test-NetConnection <IP> -Port 3000     # use laptop 1's IP
-nc -vz <IP> 3000 # mac
-# On laptop 1 (demo_stream.py or main.py must be running on laptop 2):
-Test-NetConnection <IP> -Port 8002     # use laptop 2's IP
-=======
 Test-NetConnection 192.168.1.10 -Port 3000     # use laptop 1's IP
 nc -vz 192.168.68.113 3000 # mac
 # On laptop 1 (demo_stream.py or main.py must be running on laptop 2):
 Test-NetConnection 192.168.1.50 -Port 8002     # use laptop 2's IP
->>>>>>> dc3eff9011c82213c9f72ebb2829d0f415d349b7
 ```
 
 `TcpTestSucceeded : True` means it works. Don't use `ping` for this test: Windows blocks ping
@@ -95,15 +87,17 @@ Laptop 2 sends alerts to this address, so it must not change.
 
 Laptop 2's IP can change freely. It reports its current IP in every heartbeat.
 
-### 3.2 PostgreSQL
+### 3.2 Database (Supabase Postgres)
 
-1. Install PostgreSQL for Windows from postgresql.org/download/windows (keep port 5432 and
-   note the `postgres` password).
-2. Create the database. Either use pgAdmin → *Create → Database* → `falldetect`, or run:
-   ```powershell
-   psql -U postgres -c "CREATE DATABASE falldetect;"
-   ```
-3. Don't open port 5432 in the firewall. Only the app on the same laptop uses it.
+The database is hosted on Supabase, so nothing is installed on laptop 1, but laptop 1
+needs internet for the app to work.
+
+1. In the Supabase project, click **Connect** and copy the **Session pooler** connection
+   string (port 5432). Replace `[YOUR-PASSWORD]` with the database password.
+2. Put it in `frontend/.env` as both `DATABASE_URL` (app + seeds) and `DIRECT_URL`
+   (`prisma migrate`). See `frontend/.env.example`.
+3. Free-tier projects pause after a period of inactivity. Restore it from the Supabase
+   dashboard before a demo.
 
 ### 3.3 Firewall (PowerShell as Administrator)
 
@@ -119,7 +113,8 @@ cd frontend
 copy .env.example .env      # then fill it in (see below)
 npm install
 npx prisma migrate deploy   # or follow PATCHES.md §3 if you're creating the migrations
-npx prisma db seed
+npx prisma db seed          # clean DB: facility + admin@fall.example only
+npm run seed:demo           # optional: floors, rooms CAM-201/202/301, patients, nurse
 npm run seed:nodes          # optional demo camera laptops
 npm run build
 npm run start:lan           # next start -H 0.0.0.0 -p 3000
@@ -175,7 +170,7 @@ Once all that works, do the `main.py` edits in `backend/MAIN_PY_INTEGRATION.md` 
 ## 5. Daily start and stop
 
 **Start:**
-1. Laptop 1: PostgreSQL (starts with Windows), then `npm run start:lan`.
+1. Laptop 1: check the internet connection (Supabase), then `npm run start:lan`.
 2. Laptop 2: `python main.py`.
 
 Starting in the other order is fine too. Alerts sent while laptop 1 is down wait in
@@ -198,7 +193,7 @@ A sleeping laptop 1 means alerts queue on laptop 2 instead of reaching the nurse
 |---|---|---|
 | `check_node`: laptop 1 port not reachable | App not running, started without `-H 0.0.0.0`, firewall, wrong IP, client isolation | `npm run start:lan`; firewall rule §3.3; check IP; §1 test |
 | `check_node`: secret mismatch (401) | Different `MONITOR_INGEST_SECRET` values | Copy the value exactly; no quotes or spaces |
-| Laptop missing from Admin → Camera laptops | Heartbeat rejected (404) | The Sensor ID in Admin → Rooms must equal `CAMERA_ID_MAP` values, e.g. `CAM-201` |
+| Laptop missing from Admin → Camera laptops | Heartbeat rejected (404) | Run `npm run seed:cameras` on laptop 1 with the same `config/cameras.json`, or make the Sensor ID in Admin → Rooms equal the file's `deviceId` (e.g. `CAM-201`). Laptop 2's log names unlinked IDs |
 | Laptop shows offline | No heartbeat for 90 s | Is `main.py` running? Is laptop 2 asleep? |
 | Video: "Can't load video…" | Port 8002 blocked on laptop 2, or a different Wi-Fi | Firewall rule §4; from laptop 1 open `http://<laptop2-ip>:8002/health` |
 | Video URL opened by hand says "Missing stream token" | Expected: video needs a token from the dashboard | Watch it through the dashboard |

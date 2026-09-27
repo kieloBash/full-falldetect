@@ -10,7 +10,8 @@ import { jwtVerify } from "jose";
 const SESSION_COOKIE = "fd_session";
 const ISSUER = "falldetect";
 
-const PUBLIC_API = ["/api/auth", "/api/facilities", "/api/monitor/ingest", "/api/monitor/heartbeat"];
+// /api/auth/register and /api/facilities were removed: admins create accounts.
+const PUBLIC_API = ["/api/auth", "/api/monitor/ingest", "/api/monitor/heartbeat"];
 const ADMIN_ONLY = ["/admin", "/api/admin", "/api/detection-nodes"];
 
 function matches(pathname: string, prefixes: string[]): boolean {
@@ -72,6 +73,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|screenshots/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|screenshots/|sounds/|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|txt|mp3|wav|ogg|m4a)$).*)",
   ],
 };

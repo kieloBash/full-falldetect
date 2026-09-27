@@ -1,6 +1,8 @@
+// location: frontend/app/api/admin/patients/[patientId]/route.ts
+import type { Prisma } from "@/app/generated/prisma/client";
 import { projectPatient, splitName, type PatientRow } from "@/lib/admin/server-projection";
 import { prisma } from "@/lib/db/prisma";
-import { requireSession } from "@/lib/live-monitor-server/require-session";
+import { requireAdminSession } from "@/lib/live-monitor-server/require-session";
 import { NextResponse } from "next/server";
 
 async function scopedResident(patientId: string, facilityId: string) {
@@ -18,7 +20,7 @@ async function scopedResident(patientId: string, facilityId: string) {
  * someone else. Discharge does NOT auto-vacate the room (assignment intact).
  */
 export async function PATCH(req: Request, { params }: { params: Promise<{ patientId: string }> }) {
-  const auth = await requireSession();
+  const auth = await requireAdminSession();
   if ("error" in auth) return auth.error;
   const { facilityId } = auth.claims;
   const { patientId } = await params;
@@ -44,7 +46,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ patien
 
   const { firstName, lastName } = splitName(name ?? "");
 
-  const patient = await prisma.$transaction(async (tx: any) => {
+  const patient = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const resident = await tx.resident.update({
       where: { id: patientId },
       data: {
@@ -72,12 +74,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ patien
 }
 
 /**
- * DELETE /api/admin/patients/{patientId} — remove the resident. Their room
+ * DELETE /api/admin/patients/{patientId} — remove the resident (only if they have no
+ * incidents; otherwise discharge them). Their room
  * (if any) is freed first (Room.residentId → null) so it doesn't dangle;
  * Resident has onDelete: Restrict from Room's side, so we detach before delete.
  */
 export async function DELETE(_req: Request, { params }: { params: Promise<{ patientId: string }> }) {
-  const auth = await requireSession();
+  const auth = await requireAdminSession();
   if ("error" in auth) return auth.error;
   const { facilityId } = auth.claims;
   const { patientId } = await params;
@@ -85,7 +88,18 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ pati
   const existing = await scopedResident(patientId, facilityId);
   if (!existing) return NextResponse.json({ error: "Patient not found." }, { status: 404 });
 
-  await prisma.$transaction(async (tx: any) => {
+  // Incident.resident is onDelete: Restrict — incidents are the permanent audit trail.
+  const incidentCount = await prisma.incident.count({ where: { residentId: patientId } });
+  if (incidentCount > 0) {
+    return NextResponse.json(
+      {
+        error: `This patient has ${incidentCount} incident record${incidentCount === 1 ? "" : "s"} and can't be deleted. Mark them as discharged instead.`,
+      },
+      { status: 409 }
+    );
+  }
+
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     if (existing.room?.id) {
       await tx.room.update({ where: { id: existing.room.id }, data: { residentId: null } });
     }

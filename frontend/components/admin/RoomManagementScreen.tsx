@@ -1,3 +1,4 @@
+// location: frontend/components/admin/RoomManagementScreen.tsx
 "use client";
 
 import { COPY } from "@/lib/admin/constants";
@@ -6,14 +7,15 @@ import { AddEditRoomModal } from "./AddEditRoomModal";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminToolbar } from "./AdminToolbar";
 import { AdminTopBar } from "./AdminTopBar";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { RoomManagementTable } from "./RoomManagementTable";
 
 /**
  * FallDetect — Admin · Room Management (`/admin/rooms`).
  *
  * Every room across every floor, with its floor and currently assigned
- * patient, plus add/edit/remove. Backed by TanStack Query, mock-backed for
- * now. Fully self-contained: render `<RoomManagementScreen />` and it owns
+ * patient, plus add/edit/remove. Backed by TanStack Query + the
+ * /api/admin/rooms routes. Fully self-contained: render `<RoomManagementScreen />` and it owns
  * its own state via `useRoomManagement`.
  */
 export function RoomManagementScreen() {
@@ -49,8 +51,17 @@ export function RoomManagementScreen() {
           onCancel={room.closeRoomModal}
           onSave={room.saveRoom}
           saving={room.savingRoom}
+          error={room.formError}
         />
       )}
+
+      <ConfirmDeleteDialog
+        target={room.deleteTarget}
+        busy={room.deletingRoom}
+        error={room.deleteError}
+        onCancel={room.cancelRemoveRoom}
+        onConfirm={room.confirmRemoveRoom}
+      />
     </div>
   );
 }

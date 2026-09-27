@@ -1,3 +1,4 @@
+// location: frontend/components/admin/AddEditRoomModal.tsx
 import { COPY } from "@/lib/admin/constants";
 import type { Floor, RoomFormValues } from "@/lib/admin/types";
 import { ModalShell } from "./ModalShell";
@@ -12,20 +13,22 @@ export interface AddEditRoomModalProps {
   onCancel: () => void;
   onSave: () => void;
   saving: boolean;
+  error?: string | null;
 }
 
 /**
  * Add/edit room modal: room number + sensor/device id, and which floor it
- * belongs to. No resident or sensor-status fields — patient assignment
- * happens from Patient Management, and new rooms always start "Online"
- * (status isn't editable from this screen).
+ * belongs to. The Sensor ID is saved as Sensor.deviceId and must match the
+ * camera's ID in backend/.env CAMERA_ID_MAP (e.g. CAM-201), or alerts from that
+ * camera won't reach this room. Patient assignment happens in Patient Management.
  */
-export function AddEditRoomModal({ values, floors, onFieldChange, isEditing, onCancel, onSave, saving }: AddEditRoomModalProps) {
+export function AddEditRoomModal({ values, floors, onFieldChange, isEditing, onCancel, onSave, saving, error }: AddEditRoomModalProps) {
   return (
     <ModalShell
       title={isEditing ? COPY.room.modalTitleEdit : COPY.room.modalTitleAdd}
       widthClassName="w-[440px]"
       onClose={onCancel}
+      error={error}
       footer={
         <>
           <button
@@ -53,7 +56,7 @@ export function AddEditRoomModal({ values, floors, onFieldChange, isEditing, onC
           label="Sensor / device ID"
           value={values.sensorId}
           onChange={(v) => onFieldChange("sensorId", v)}
-          placeholder="SNR-204"
+          placeholder="CAM-204"
         />
       </div>
       <ModalSelectField

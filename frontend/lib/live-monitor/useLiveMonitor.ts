@@ -1,78 +1,73 @@
+// location: frontend/lib/live-monitor/useLiveMonitor.ts
 "use client";
 
-import { Floor } from "@/app/generated/prisma/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAlertSound } from "@/lib/alert-sound/useAlertSound";
 import { useFloors } from "../floor/queries";
 import {
   useAcknowledgeMutation,
   useActivityQuery,
+  useAllRoomsQuery,
   useFlagFalseAlarmMutation,
   usePinMutation,
   usePinnedQuery,
   useReconnectSensorMutation,
   useResolveMutation,
-  useRoomsQuery,
   useSimulateFallMutation,
   useUnpinMutation,
 } from "./queries";
-import type { ActivityItem, FloorId, Room, Toast, ViewMode } from "./types";
+import type { ActivityItem, Floor, FloorId, Room, Toast, ViewMode } from "./types";
 import { effState } from "./utils";
 
+const HIGHLIGHT_MS = 2_500;
+
 export interface UseLiveMonitorOptions {
-  /** Demo affordance: opens with a simulated active fall on Room 201. */
-  startWithActiveFall?: boolean;
-  muteSound?: boolean;
+  /** Swap pulsing/flashing animations for static styles. */
   reduceMotion?: boolean;
 }
 
 /**
- * Owns state + mutations for the Live Monitor screen. The DB is the source of
- * truth for everything durable:
- *  - rooms come from `useRoomsQuery(floor)` (GET /api/monitor)
- *  - pinned rooms come from `usePinnedQuery` (GET /api/pinned), toggled via
- *    pin/unpin mutations
- *  - the activity feed comes from `useActivityQuery` (GET /api/activity);
- *    the server writes each entry when an action's route runs, so the client
- *    no longer appends activity locally — it just invalidates and refetches.
- *
- * Response actions invalidate rooms + activity on success ("refetch after
- * each action"). Only genuinely ephemeral concerns stay as React state:
- * view/floor/search/mute/toasts/camera-modal/false-alarm-dialog and the 1s
- * timer that drives elapsed counters.
+ * Owns state + mutations for the Live Monitor screen. The DB is the source of truth:
+ *  - rooms for EVERY floor come from `useAllRoomsQuery` (GET /api/monitor per floor,
+ *    polled every 3 s), so alerts on other floors are never missed;
+ *  - pinned rooms from `usePinnedQuery`, the activity feed from `useActivityQuery`.
+ * Actions invalidate rooms + activity on success. The looping alarm lives in
+ * `useAlertSound` and rings while any room on any floor has an ACTIVE fall.
  */
 export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
-  const { startWithActiveFall = false, muteSound = false, reduceMotion = false } = options;
+  const { reduceMotion = false } = options;
 
   const [view, setView] = useState<ViewMode>("grid");
-  const [floor, setFloor] = useState<FloorId | null>("");
+  /** The floor the user picked; `floor` below falls back to the first floor. */
+  const [pickedFloor, setFloor] = useState<FloorId | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [muted, setMuted] = useState(muteSound);
   const [faRoomId, setFaRoomId] = useState<string | null>(null);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [toasts, setToasts] = useState<Toast[]>([]);
+  /** Room whose tile flashes after "View room" (cleared after HIGHLIGHT_MS). */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const uid = useRef(0);
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const roomsQuery = useRoomsQuery(floor);
-  const rooms = useMemo<Room[]>(() => roomsQuery.data ?? [], [roomsQuery.data]);
+  const floorsQuery = useFloors();
+  const floors = useMemo<Floor[]>(() => floorsQuery.data ?? [], [floorsQuery.data]);
+  const floorIds = useMemo(() => floors.map((f) => f.id), [floors]);
+
+  // Default to the first floor; also recovers if the picked floor was deleted in Admin.
+  const floor: FloorId | null =
+    pickedFloor && floors.some((f) => f.id === pickedFloor) ? pickedFloor : floors[0]?.id ?? null;
+
+  const roomsQuery = useAllRoomsQuery(floorIds);
+  const allRooms = roomsQuery.rooms;
 
   const pinnedQuery = usePinnedQuery();
   const pinned = useMemo<string[]>(() => pinnedQuery.data ?? [], [pinnedQuery.data]);
 
   const activityQuery = useActivityQuery();
   const activity = useMemo<ActivityItem[]>(() => activityQuery.data ?? [], [activityQuery.data]);
-
-  const floorsQuery = useFloors();
-  const floors = useMemo<Floor[]>(() => floorsQuery.data ?? [], [floorsQuery.data]);
-
-  useEffect(() => {
-    if (floors.length > 0)
-      setFloor(floors[0].id)
-  }, [floors])
 
   /* 1s tick drives live elapsed timers and the camera-feed timestamp. */
   useEffect(() => {
@@ -86,110 +81,75 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
-  const beep = useCallback(() => {
-    if (muted) return;
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      audioCtxRef.current = audioCtxRef.current || new AudioCtx();
-      const ac = audioCtxRef.current;
-      [0, 0.18].forEach((dt) => {
-        const osc = ac.createOscillator();
-        const gain = ac.createGain();
-        osc.type = "sine";
-        osc.frequency.value = 880;
-        osc.connect(gain);
-        gain.connect(ac.destination);
-        const t0 = ac.currentTime + dt;
-        gain.gain.setValueAtTime(0.0001, t0);
-        gain.gain.exponentialRampToValueAtTime(0.13, t0 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
-        osc.start(t0);
-        osc.stop(t0 + 0.15);
-      });
-    } catch {
-      // Audio is a nice-to-have; ignore autoplay-policy / unsupported-browser failures.
-    }
-  }, [muted]);
+  /* ── Active falls on ALL floors + the looping alarm ─────────────────── */
 
+  const activeRooms = useMemo(
+    () =>
+      allRooms
+        .filter((r) => r.alertState === "active")
+        .sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0)),
+    [allRooms]
+  );
+  const activeIds = useMemo(() => activeRooms.map((r) => r.id), [activeRooms]);
+  const sound = useAlertSound({ activeIds });
+
+  // Toast + auto-select for each newly detected fall (skips falls already open on page load).
   const prevActiveIdsRef = useRef<Set<string> | null>(null);
-
   useEffect(() => {
-    const currentActiveIds = new Set(
-      rooms.filter((r) => effState(r) === "active").map((r) => r.id)
-    );
-
-    // Skip the very first population — prevActiveIdsRef starts null, and we
-    // don't want to alert on incidents that were already active on page load.
+    if (roomsQuery.isPending) return;
+    const current = new Set(activeIds);
     if (prevActiveIdsRef.current !== null) {
-      const newlyActive = [...currentActiveIds].filter(
-        (id) => !prevActiveIdsRef.current!.has(id)
-      );
-
-      for (const id of newlyActive) {
-        const room = rooms.find((r) => r.id === id);
-        if (room) {
-          toast(`Fall detected — Room ${room.label}`, "bg-red-600");
-          beep();
-        }
+      const newlyActive = activeRooms.filter((r) => !prevActiveIdsRef.current!.has(r.id));
+      for (const room of newlyActive) {
+        toast(`Fall detected — Room ${room.label} (Floor ${room.floor.label})`, "bg-red-600");
       }
-
-      if (newlyActive.length > 0 && selectedId === null) {
-        // Auto-focus the incident only if the nurse isn't already looking at something.
-        setSelectedId(newlyActive[0]);
-      }
+      const first = newlyActive[0];
+      if (first && selectedId === null && first.floor.id === floor) setSelectedId(first.id);
     }
-
-    prevActiveIdsRef.current = currentActiveIds;
-  }, [rooms, beep, toast, selectedId]);
+    prevActiveIdsRef.current = current;
+  }, [activeIds, activeRooms, roomsQuery.isPending, toast, selectedId, floor]);
 
   /* ── Actions ────────────────────────────────────────────────────────── */
 
   const simulateFallMutation = useSimulateFallMutation();
+  /** Omit roomId to let the server pick a random eligible room on the current floor. */
   const simulateFall = useCallback(
-    (roomId: string) => {
-      if (!floor) return
+    (roomId?: string) => {
+      if (!floor) return;
       simulateFallMutation.mutate(
         { roomId, floor },
         {
-          onSuccess: ({ roomId }) => {
-            console.log({ roomId })
-            setSelectedId(roomId);
-            beep();
-          },
-          onError: (e) => {
-            console.log({ e })
-            toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600")
-          },
+          onSuccess: ({ roomId }) => setSelectedId(roomId),
+          onError: (e) => toast(e instanceof Error ? e.message : "Could not simulate fall", "bg-amber-600"),
         }
       );
     },
-    [floor, simulateFallMutation, beep, toast]
+    [floor, simulateFallMutation, toast]
   );
 
   const acknowledgeMutation = useAcknowledgeMutation();
   const acknowledge = useCallback(
     (id: string) => {
-      const r = rooms.find((x) => x.id === id);
+      const r = allRooms.find((x) => x.id === id);
       if (!r || r.alertState !== "active") return;
       acknowledgeMutation.mutate(id, {
         onSuccess: () => toast(`Acknowledged Room ${r.label} — responding`, "bg-amber-600"),
         onError: (e) => toast(e instanceof Error ? e.message : "Acknowledge failed", "bg-amber-600"),
       });
     },
-    [rooms, acknowledgeMutation, toast]
+    [allRooms, acknowledgeMutation, toast]
   );
 
   const resolveMutation = useResolveMutation();
   const resolve = useCallback(
     (id: string) => {
-      const r = rooms.find((x) => x.id === id);
+      const r = allRooms.find((x) => x.id === id);
       resolveMutation.mutate(id, {
         onSuccess: () => r && toast(`Room ${r.label} resolved`, "bg-green-600"),
         onError: (e) => toast(e instanceof Error ? e.message : "Resolve failed", "bg-green-600"),
       });
     },
-    [rooms, resolveMutation, toast]
+    [allRooms, resolveMutation, toast]
   );
 
   const flagFalseAlarmMutation = useFlagFalseAlarmMutation();
@@ -197,7 +157,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     (reason: string) => {
       const id = faRoomId;
       if (!id) return;
-      const r = rooms.find((x) => x.id === id);
+      const r = allRooms.find((x) => x.id === id);
       flagFalseAlarmMutation.mutate(
         { roomId: id, reason },
         {
@@ -209,7 +169,7 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
         }
       );
     },
-    [faRoomId, rooms, flagFalseAlarmMutation, toast]
+    [faRoomId, allRooms, flagFalseAlarmMutation, toast]
   );
 
   const cancelFalseAlarm = useCallback(() => setFaRoomId(null), []);
@@ -217,13 +177,13 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   const reconnectSensorMutation = useReconnectSensorMutation();
   const reconnectSensor = useCallback(
     (id: string) => {
-      const r = rooms.find((x) => x.id === id);
+      const r = allRooms.find((x) => x.id === id);
       reconnectSensorMutation.mutate(id, {
         onSuccess: () => r && toast(`Room ${r.label} sensor back online`, "bg-green-600"),
         onError: (e) => toast(e instanceof Error ? e.message : "Reconnect failed", "bg-green-600"),
       });
     },
-    [rooms, reconnectSensorMutation, toast]
+    [allRooms, reconnectSensorMutation, toast]
   );
 
   const pinMutation = usePinMutation();
@@ -236,7 +196,6 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     [pinned, pinMutation, unpinMutation]
   );
 
-  const toggleMuted = useCallback(() => setMuted((m) => !m), []);
   const clearSearch = useCallback(() => setQuery(""), []);
   const clearSelection = useCallback(() => setSelectedId(null), []);
   const openCameraModal = useCallback((id: string) => setLiveId(id), []);
@@ -249,10 +208,43 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     setSelectedId(null);
   }, []);
 
-  const focusRoom = useCallback((room: Room) => {
+  /**
+   * Switch to the room's floor and select it (pinned residents, alerts on other floors).
+   * Jumps to the grid view unless `keepView` (camera wall cards).
+   */
+  const focusRoom = useCallback((room: Room, keepView = false) => {
     setFloor(room.floor.id);
     setSelectedId(room.id);
+    if (!keepView) setView("grid");
   }, []);
+
+  /**
+   * "View room" from the fall pop-up: go to the room's floor in grid view, make sure a
+   * search isn't hiding it, then scroll its tile into view and flash it.
+   */
+  const revealRoom = useCallback(
+    (room: Room) => {
+      const q = query.trim().toLowerCase();
+      if (q && !room.label.toLowerCase().includes(q) && !room.resident.toLowerCase().includes(q)) setQuery("");
+      focusRoom(room);
+      setHighlightId(room.id);
+    },
+    [query, focusRoom]
+  );
+
+  // Scroll to the highlighted tile once it's rendered, then stop flashing.
+  useEffect(() => {
+    if (!highlightId) return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-room-id="${highlightId}"]`);
+      el?.scrollIntoView?.({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+    });
+    const timer = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [highlightId, reduceMotion]);
 
   /* Keyboard shortcuts: A acknowledge · F false alarm · / focus search · Esc close top-most surface */
   useEffect(() => {
@@ -269,8 +261,8 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
         else if (selectedId) setSelectedId(null);
         return;
       }
-      if (active && (active.tagName === "INPUT" || active.tagName === "SELECT")) return;
-      const r = rooms.find((x) => x.id === selectedId);
+      if (active && (active.tagName === "INPUT" || active.tagName === "SELECT" || active.tagName === "TEXTAREA")) return;
+      const r = allRooms.find((x) => x.id === selectedId);
       if (!r) return;
       if ((e.key === "a" || e.key === "A") && r.alertState === "active") {
         e.preventDefault();
@@ -283,23 +275,11 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rooms, selectedId, faRoomId, liveId, acknowledge]);
-
-  /* Optional prop: open mid-incident for demos. Fires once rooms have loaded. */
-  const didAutoSim = useRef(false);
-  useEffect(() => {
-    if (!startWithActiveFall || didAutoSim.current || rooms.length === 0) return;
-    didAutoSim.current = true;
-    const t = setTimeout(() => simulateFall("201"), 400);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rooms.length, startWithActiveFall]);
+  }, [allRooms, selectedId, faRoomId, liveId, acknowledge]);
 
   /* ── Derived state ──────────────────────────────────────────────────── */
 
-  const roomsOnFloor = useMemo(() => {
-    return floor ? rooms.filter((r) => r.floor.id === floor) : rooms
-  }, [rooms, floor]);
+  const roomsOnFloor = useMemo(() => allRooms.filter((r) => r.floor.id === floor), [allRooms, floor]);
 
   const visibleRooms = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -315,35 +295,40 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     return [...visibleRooms].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label));
   }, [visibleRooms]);
 
-  const activeCount = useMemo(() => roomsOnFloor.filter((r) => r.alertState === "active").length, [roomsOnFloor]);
+  const activeCountOnFloor = useMemo(() => roomsOnFloor.filter((r) => r.alertState === "active").length, [roomsOnFloor]);
   const clearCount = useMemo(() => roomsOnFloor.filter((r) => effState(r) === "idle").length, [roomsOnFloor]);
   const onlineCount = useMemo(() => roomsOnFloor.filter((r) => r.sensorStatus === "online").length, [roomsOnFloor]);
   const anySensorDown = useMemo(() => roomsOnFloor.some((r) => r.sensorStatus !== "online"), [roomsOnFloor]);
 
   const selectedRoom = useMemo(
-    () => (selectedId ? rooms.find((r) => r.id === selectedId && r.floor.id === floor) ?? null : null),
-    [rooms, selectedId, floor]
+    () => (selectedId ? allRooms.find((r) => r.id === selectedId && r.floor.id === floor) ?? null : null),
+    [allRooms, selectedId, floor]
   );
-  const liveRoom = useMemo(() => (liveId ? rooms.find((r) => r.id === liveId) ?? null : null), [rooms, liveId]);
-  const faRoom = useMemo(() => (faRoomId ? rooms.find((r) => r.id === faRoomId) ?? null : null), [rooms, faRoomId]);
-  const pinnedRooms = useMemo(() => pinned.map((id) => rooms.find((r) => r.id === id)).filter((r): r is Room => Boolean(r)), [pinned, rooms]);
+  const liveRoom = useMemo(() => (liveId ? allRooms.find((r) => r.id === liveId) ?? null : null), [allRooms, liveId]);
+  const faRoom = useMemo(() => (faRoomId ? allRooms.find((r) => r.id === faRoomId) ?? null : null), [allRooms, faRoomId]);
+  const pinnedRooms = useMemo(
+    () => pinned.map((id) => allRooms.find((r) => r.id === id)).filter((r): r is Room => Boolean(r)),
+    [pinned, allRooms]
+  );
+
+  /** Oldest active fall anywhere — prefer one on the current floor. */
+  const firstActiveRoom = useMemo(
+    () => activeRooms.find((r) => r.floor.id === floor) ?? activeRooms[0] ?? null,
+    [activeRooms, floor]
+  );
 
   const jumpToFirstActiveAlert = useCallback(() => {
-    const a = roomsOnFloor.find((r) => r.alertState === "active");
-    if (a) {
-      setSelectedId(a.id);
-      setView("grid");
-    }
-  }, [roomsOnFloor]);
+    if (firstActiveRoom) focusRoom(firstActiveRoom);
+  }, [firstActiveRoom, focusRoom]);
 
   return {
     // raw state
     view,
     setView,
     floor,
+    floorLabel: floors.find((f) => f.id === floor)?.label ?? "",
     query,
     setQuery,
-    muted,
     reducedMotion: reduceMotion,
     now,
     toasts,
@@ -352,10 +337,15 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     roomsLoading: roomsQuery.isPending,
     floors,
 
+    // alarm
+    sound,
+    activeRooms,
+    firstActiveRoom,
+
     // derived
     roomsOnFloor,
     sortedRooms,
-    activeCount,
+    activeCountOnFloor,
     clearCount,
     onlineCount,
     anySensorDown,
@@ -371,7 +361,6 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     focusRoom,
     clearSelection,
     clearSearch,
-    toggleMuted,
     togglePin,
     simulateFall,
     acknowledge,
@@ -383,7 +372,8 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     openCameraModal,
     closeCameraModal,
     jumpToFirstActiveAlert,
-    notifyOutOfScope: () => toast("This handoff covers Live Monitor only", "bg-teal-600"),
+    revealRoom,
+    highlightId,
   };
 }
 

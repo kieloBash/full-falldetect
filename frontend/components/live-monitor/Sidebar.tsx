@@ -1,36 +1,44 @@
-import { COPY, NAV_ITEMS, STATE_DOT_CLASS } from "@/lib/live-monitor/constants";
+// location: frontend/components/live-monitor/Sidebar.tsx
+"use client";
+
+import Link from "next/link";
+import { COPY, STATE_DOT_CLASS } from "@/lib/live-monitor/constants";
 import type { Room } from "@/lib/live-monitor/types";
 import { effState } from "@/lib/live-monitor/utils";
+import { useProfileMe } from "@/lib/auth/queries";
 import { Icon } from "@/components/icons/Icon";
 
 export interface SidebarProps {
   pinnedRooms: Room[];
   onSelectPinnedRoom: (room: Room) => void;
   onUnpin: (id: string) => void;
-  onNavigateOutOfScope: () => void;
 }
 
 /**
- * Primary navigation + pinned residents. Only "Live Monitor" is a real route
- * in this build; the rest of the section IA (Incidents/Analytics/Settings)
- * was scoped out of the prototype and shows a toast instead of navigating.
+ * Navigation + pinned residents. Nurses see Live Monitor only; administrators
+ * also get a link back to Administration (role from GET /api/me).
+ * Pinned residents from every floor are listed; clicking one switches floors.
  */
-export function Sidebar({ pinnedRooms, onSelectPinnedRoom, onUnpin, onNavigateOutOfScope }: SidebarProps) {
+export function Sidebar({ pinnedRooms, onSelectPinnedRoom, onUnpin }: SidebarProps) {
+  const { data: me } = useProfileMe();
+
   return (
     <aside className="flex w-[240px] flex-none flex-col overflow-y-auto border-r border-slate-200 bg-white">
       <nav className="flex flex-col gap-[2px] p-3">
-        {NAV_ITEMS.map((item) => (
-          <div
-            key={item.key}
-            onClick={item.active ? undefined : onNavigateOutOfScope}
-            className={`flex cursor-pointer items-center gap-[11px] rounded-lg px-[11px] py-[9px] text-[13.5px] ${
-              item.active ? "bg-teal-100 font-semibold text-teal-700" : "font-medium text-slate-600 hover:bg-slate-50"
-            }`}
+        <div className="flex items-center gap-[11px] rounded-lg bg-teal-100 px-[11px] py-[9px] text-[13.5px] font-semibold text-teal-700">
+          <Icon name="grid" size={18} />
+          Live Monitor
+        </div>
+        {me?.role === "ADMIN" && (
+          <Link
+            href="/admin"
+            data-testid="nav-admin"
+            className="flex items-center gap-[11px] rounded-lg px-[11px] py-[9px] text-[13.5px] font-medium text-slate-600 hover:bg-slate-50"
           >
-            <Icon name={item.icon} size={18} />
-            {item.label}
-          </div>
-        ))}
+            <Icon name="settings" size={18} />
+            Administration
+          </Link>
+        )}
       </nav>
 
       <div className="mx-4 h-px bg-slate-200" />

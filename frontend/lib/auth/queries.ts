@@ -1,3 +1,4 @@
+// location: frontend/lib/auth/queries.ts
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -6,15 +7,10 @@ import * as api from "./api";
 
 export const authKeys = {
   me: ["me"] as const,
-  facilities: ["facilities"] as const
 };
 
 export function useLoginMutation() {
   return useMutation({ mutationFn: api.login });
-}
-
-export function useRegisterMutation() {
-  return useMutation({ mutationFn: api.register });
 }
 
 export function useLogoutMutation() {
@@ -22,20 +18,8 @@ export function useLogoutMutation() {
   return useMutation({
     mutationFn: api.logout,
     onSuccess: () => {
-      router.replace("/")
-    }
-  });
-}
-
-/**
- * Replaces the old hardcoded `FACILITY_OPTIONS` constant. Facilities are
- * stable, so cache them generously.
- */
-export function useFacilities() {
-  return useQuery({
-    queryKey: authKeys.facilities,
-    queryFn: api.fetchFacilities,
-    staleTime: 1000 * 60 * 60,
+      router.replace("/");
+    },
   });
 }
 

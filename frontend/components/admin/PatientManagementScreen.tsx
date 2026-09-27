@@ -1,3 +1,4 @@
+// location: frontend/components/admin/PatientManagementScreen.tsx
 "use client";
 
 import { COPY } from "@/lib/admin/constants";
@@ -6,6 +7,7 @@ import { AddEditPatientModal } from "./AddEditPatientModal";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminToolbar } from "./AdminToolbar";
 import { AdminTopBar } from "./AdminTopBar";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { PatientTable } from "./PatientTable";
 
 /**
@@ -13,7 +15,7 @@ import { PatientTable } from "./PatientTable";
  *
  * Every patient, their current room assignment, care notes, and
  * active/discharged status, plus add/edit/remove. Backed by TanStack
- * Query, mock-backed for now. Fully self-contained: render
+ * Query + the /api/admin/patients routes. Fully self-contained: render
  * `<PatientManagementScreen />` and it owns its own state via
  * `usePatientManagement`.
  */
@@ -50,8 +52,17 @@ export function PatientManagementScreen() {
           onCancel={patient.closePatientModal}
           onSave={patient.savePatient}
           saving={patient.savingPatient}
+          error={patient.formError}
         />
       )}
+
+      <ConfirmDeleteDialog
+        target={patient.deleteTarget}
+        busy={patient.deletingPatient}
+        error={patient.deleteError}
+        onCancel={patient.cancelRemovePatient}
+        onConfirm={patient.confirmRemovePatient}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { RISK_META, SENSOR_META } from "@/lib/live-monitor/constants";
-import { historyForRisk } from "@/lib/live-monitor/mock-data";
+// location: frontend/components/live-monitor/InspectorRoomDetail.tsx
+import { SENSOR_META } from "@/lib/live-monitor/constants";
 import type { Room } from "@/lib/live-monitor/types";
 import { badgeVariantFor, effState, elapsedSeconds, formatElapsed } from "@/lib/live-monitor/utils";
 import { Icon } from "@/components/icons/Icon";
@@ -20,7 +20,7 @@ export interface InspectorRoomDetailProps {
   onTogglePin: () => void;
 }
 
-/** Inspector content shown when a room is selected: identity, live timer, actions, sensor, pin, history. */
+/** Inspector content shown when a room is selected: identity, live timer, snapshot, actions, sensor, pin. */
 export function InspectorRoomDetail({
   room,
   floorLabel,
@@ -35,14 +35,10 @@ export function InspectorRoomDetail({
   onTogglePin,
 }: InspectorRoomDetailProps) {
   const state = effState(room);
-  const risk = RISK_META[room.risk];
   const sensor = SENSOR_META[room.sensorStatus];
   const elapsed = elapsedSeconds(room.startedAt, now);
-  const history = historyForRisk(room.history);
 
   const screenshotSrc = resolveScreenshotSrc(room?.screenshotPath);
-
-  console.log({ room })
 
   return (
     <div>
@@ -65,16 +61,13 @@ export function InspectorRoomDetail({
           <div className="min-w-0">
             <div className="text-[17px] font-semibold">{room.resident}</div>
             <div className="mt-[2px] text-[12.5px] text-slate-600">
-              Room {room.label} · {room.zone} · {floorLabel}
+              Room {room.label} · {floorLabel}
             </div>
           </div>
         </div>
 
         <div className="mt-[14px] flex gap-2">
           <StatusBadge variant={badgeVariantFor(room)} label={state === "falsealarm" ? "False alarm" : undefined} />
-          <span className={`inline-flex items-center rounded-md px-[9px] py-[3px] text-[11px] font-semibold ${risk.bgClass} ${risk.textClass}`}>
-            {risk.label}
-          </span>
         </div>
 
         {(state === "active" || state === "acknowledged") && (
@@ -162,15 +155,6 @@ export function InspectorRoomDetail({
               </button>
             </>
           )}
-          {(state === "idle" || state === "falsealarm") && (
-            <button
-              type="button"
-              className="flex h-[42px] items-center justify-center gap-[7px] rounded-lg border border-slate-200 bg-white text-[13.5px] font-semibold text-slate-600 hover:bg-slate-50"
-            >
-              <Icon name="assign" size={16} />
-              Assign nurse
-            </button>
-          )}
         </div>
 
         <div className="mb-[10px] mt-[22px] text-[11px] font-semibold uppercase tracking-[.05em] text-slate-400">Sensor</div>
@@ -212,20 +196,6 @@ export function InspectorRoomDetail({
           {pinned ? "Unpin from camera wall" : "Pin to camera wall"}
         </button>
 
-        {history.length > 0 && (
-          <>
-            <div className="mb-[10px] mt-[22px] text-[11px] font-semibold uppercase tracking-[.05em] text-slate-400">Recent incidents</div>
-            {history.map((h, i) => (
-              <div key={i} className="flex items-start gap-[10px] border-b border-slate-100 py-[9px]">
-                <span className={`mt-[5px] h-[7px] w-[7px] flex-none rounded-full ${h.color}`} />
-                <div>
-                  <div className="text-[12.5px] font-medium text-slate-900">{h.text}</div>
-                  <div className="mt-[1px] text-[11px] text-slate-400">{h.when}</div>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
       </div>
     </div>
   );

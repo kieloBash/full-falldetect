@@ -1,13 +1,14 @@
-import { User, UserRole } from "@/app/generated/prisma/client";
-import type { FacilityOption, LoginFormValues, RegisterFormValues } from "./types";
+// location: frontend/lib/auth/api.ts
+import { apiClient } from "@/lib/api/client";
+import type { LoginFormValues } from "./types";
 
 /**
- * Auth API layer. Same shape as before, but the mock delays are gone: each
- * call now hits a real route handler under `app/api/auth/*` that talks to
- * Prisma. Session state is a JWT set as an httpOnly cookie by the route —
- * the client never sees or stores the token, so these still just return the
- * lightweight `AuthResult`.
+ * Auth API layer (axios). The session is a JWT in the httpOnly `fd_session`
+ * cookie set by the route handler — the client never sees the token.
+ * There is no register call: admins create accounts (lib/users).
  */
+
+export type UserRole = "ADMIN" | "NURSE";
 
 export interface AuthResult {
   userId: string;
@@ -15,38 +16,24 @@ export interface AuthResult {
   role: UserRole;
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error ?? "Something went wrong. Please try again.");
-  return data as T;
+export interface ProfileMe {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
 }
 
 export async function login(values: LoginFormValues): Promise<AuthResult> {
-  return postJson<AuthResult>("/api/auth/login", values);
-}
-
-export async function register(values: RegisterFormValues): Promise<AuthResult> {
-  return postJson<AuthResult>("/api/auth/register", values);
+  const { data } = await apiClient.post<AuthResult>("/auth/login", values);
+  return data;
 }
 
 export async function logout(): Promise<void> {
-  await fetch("/api/auth/logout", { method: "POST" });
+  await apiClient.post("/auth/logout");
 }
 
-export async function fetchFacilities(): Promise<FacilityOption[]> {
-  const res = await fetch("/api/facilities");
-  if (!res.ok) throw new Error("Could not load facilities.");
-  return (await res.json()) as FacilityOption[];
+export async function fetchProfileMe(): Promise<ProfileMe> {
+  const { data } = await apiClient.get<ProfileMe>("/me");
+  return data;
 }
-
-export async function fetchProfileMe(): Promise<User> {
-  const res = await fetch("/api/me");
-  if (!res.ok) throw new Error("Could not load user profile.");
-  return (await res.json());
-}
-

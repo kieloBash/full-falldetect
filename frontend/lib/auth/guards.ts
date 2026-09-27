@@ -5,6 +5,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { isUserActive } from "./active-user";
 
 export const SESSION_COOKIE = "fd_session";
 const ISSUER = "falldetect";
@@ -55,7 +56,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 /** Returns the user, or a 401 response to return directly from the route. */
 export async function requireUser(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  if (!user || !(await isUserActive(user.userId))) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
   return user;
 }
 

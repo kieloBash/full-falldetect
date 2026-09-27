@@ -23,9 +23,9 @@ export function AuthTabs({ mode, onShowLogin, onShowRegister }: AuthTabsProps) {
       <button type="button" onClick={onShowLogin} className={tabClass(mode === "login")}>
         Sign in
       </button>
-      <button type="button" onClick={onShowRegister} className={tabClass(mode === "register")}>
+      {/* <button type="button" onClick={onShowRegister} className={tabClass(mode === "register")}>
         Create account
-      </button>
+      </button> */}
     </div>
   );
 }

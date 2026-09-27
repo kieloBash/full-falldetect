@@ -1,11 +1,13 @@
+// location: frontend/app/api/admin/patients/route.ts
+import type { Prisma } from "@/app/generated/prisma/client";
 import { projectPatient, splitName, type PatientRow } from "@/lib/admin/server-projection";
 import { prisma } from "@/lib/db/prisma";
-import { requireSession } from "@/lib/live-monitor-server/require-session";
+import { requireAdminSession } from "@/lib/live-monitor-server/require-session";
 import { NextResponse } from "next/server";
 
 /** GET /api/admin/patients — residents in the caller's facility, as patients. */
 export async function GET() {
-  const auth = await requireSession();
+  const auth = await requireAdminSession();
   if ("error" in auth) return auth.error;
   const { facilityId } = auth.claims;
 
@@ -31,7 +33,7 @@ export async function GET() {
  * INVERSE side (Room.residentId) and rejects if the room is already occupied.
  */
 export async function POST(req: Request) {
-  const auth = await requireSession();
+  const auth = await requireAdminSession();
   if ("error" in auth) return auth.error;
   const { facilityId } = auth.claims;
   const { name, roomId, notes } = await req.json();
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
 
   const { firstName, lastName } = splitName(name);
 
-  const patient = await prisma.$transaction(async (tx: any) => {
+  const patient = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const resident = await tx.resident.create({
       data: { facilityId, firstName, lastName, notes: (notes ?? "").trim() },
       select: { id: true, firstName: true, lastName: true, notes: true, discharged: true },

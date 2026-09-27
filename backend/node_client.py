@@ -221,6 +221,7 @@ class Heartbeat(threading.Thread):
         self._stop_event = threading.Event()  # not "_stop": Thread uses that name internally
         self._last_ok: bool | None = None
         self._last_url: str | None = None
+        self._last_ignored: frozenset[str] = frozenset()
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -244,6 +245,8 @@ class Heartbeat(threading.Thread):
             ok = response.status_code == 200
             if ok and (self._last_ok is not True or stream_url != self._last_url):
                 log.info("[heartbeat] connected to %s; video at %s", config.FRONTEND_BASE_URL, stream_url)
+            if ok:
+                self._warn_unlinked(response)
             if not ok:
                 log.warning("[heartbeat] rejected (%s): %s", response.status_code, response.text[:200])
         except requests.RequestException as exc:
@@ -253,3 +256,20 @@ class Heartbeat(threading.Thread):
         self._last_ok = ok
         self._last_url = stream_url
         return ok
+
+    def _warn_unlinked(self, response: requests.Response) -> None:
+        """Laptop 1 lists camera IDs it has no room for; their alerts would be rejected."""
+        try:
+            ignored = frozenset(response.json().get("ignored") or [])
+        except ValueError:
+            return
+        if ignored == self._last_ignored:
+            return  # only log when the set changes
+        self._last_ignored = ignored
+        for device_id in sorted(ignored):
+            log.warning(
+                "[heartbeat] %s is not linked to any room on laptop 1 — its alerts will be rejected. "
+                "Run `npm run seed:cameras` on laptop 1 (same config/cameras.json) or set the "
+                "Sensor ID in Admin → Room Management.", device_id)
+        if not ignored:
+            log.info("[heartbeat] all cameras are linked to rooms on laptop 1")

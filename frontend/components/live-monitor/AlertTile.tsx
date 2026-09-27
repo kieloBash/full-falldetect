@@ -1,5 +1,6 @@
+// location: frontend/components/live-monitor/AlertTile.tsx
 import type { MouseEvent } from "react";
-import { RISK_META, SENSOR_META } from "@/lib/live-monitor/constants";
+import { SENSOR_META } from "@/lib/live-monitor/constants";
 import type { Room } from "@/lib/live-monitor/types";
 import { badgeVariantFor, effState, elapsedSeconds, formatElapsed } from "@/lib/live-monitor/utils";
 import { Icon } from "@/components/icons/Icon";
@@ -9,6 +10,8 @@ export interface AlertTileProps {
   room: Room;
   now: number;
   selected: boolean;
+  /** Briefly true after "View room", so the nurse's eye lands on the tile. */
+  highlighted?: boolean;
   reducedMotion: boolean;
   onSelect: () => void;
   onAcknowledge: () => void;
@@ -21,9 +24,8 @@ export interface AlertTileProps {
  * idle → active (red, pulsing) → acknowledged (amber) → resolved (green
  * flash) → back to idle, or active → false alarm (fades gray).
  */
-export function AlertTile({ room, now, selected, reducedMotion, onSelect, onAcknowledge, onFlagFalseAlarm, onResolve }: AlertTileProps) {
+export function AlertTile({ room, now, selected, highlighted = false, reducedMotion, onSelect, onAcknowledge, onFlagFalseAlarm, onResolve }: AlertTileProps) {
   const state = effState(room);
-  const risk = RISK_META[room.risk];
   const sensor = SENSOR_META[room.sensorStatus];
   const elapsed = elapsedSeconds(room.startedAt, now);
   const showTimer = state === "active" || state === "acknowledged";
@@ -42,19 +44,24 @@ export function AlertTile({ room, now, selected, reducedMotion, onSelect, onAckn
               : "border border-slate-200 bg-white p-3.5";
 
   const hoverClass = state === "active" ? "" : "hover:shadow-[0_1px_6px_rgba(15,23,42,.09)]";
-  const selectedClass = selected ? "outline outline-2 outline-offset-1 outline-teal-600" : "";
+  const selectedClass = highlighted
+    ? "outline outline-4 outline-offset-2 outline-teal-500 ring-8 ring-teal-400/30"
+    : selected
+      ? "outline outline-2 outline-offset-1 outline-teal-600"
+      : "";
 
   const stopPropagation = (e: MouseEvent) => e.stopPropagation();
 
   return (
     <div
       onClick={onSelect}
+      data-room-id={room.id}
+      data-highlighted={highlighted ? "true" : undefined}
       className={`relative box-border flex flex-col gap-[11px] rounded-lg transition-shadow ${stateClasses} ${hoverClass} ${selectedClass} cursor-pointer`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-[13px] font-bold text-slate-900">Room {room.label}</span>
-          <span className="text-[10px] font-medium text-slate-400">{room.zone}</span>
         </div>
         <span title={sensor.label} className={`mt-[3px] h-[9px] w-[9px] flex-none rounded-full ${sensor.dotClass}`} />
       </div>
@@ -65,7 +72,7 @@ export function AlertTile({ room, now, selected, reducedMotion, onSelect, onAckn
         </div>
         <div className="min-w-0">
           <div className="overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-slate-900">{room.resident}</div>
-          <div className={`mt-[2px] text-[11px] font-medium ${risk.textClass}`}>{risk.label}</div>
+          <div className="mt-[2px] text-[11px] font-medium text-slate-500">{sensor.label}</div>
         </div>
       </div>
 

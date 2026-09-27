@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
+from camera_setup import CameraEntry, CameraSetupError, load_camera_setup
+
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -81,5 +83,21 @@ ALERT_MAX_AGE_MIN = _int("ALERT_MAX_AGE_MIN", 60)  # older queued alerts are dro
 
 # ── Model + cameras ────────────────────────────────────────────────
 WEIGHTS_PATH = os.getenv("WEIGHTS_PATH", "").strip() or str(BASE_DIR / "model" / "best_v3.pt")
-CAMERA_ID_MAP = _camera_map(os.getenv("CAMERA_ID_MAP", "0:CAM-201,1:CAM-202"))
+# Cameras come from the shared config/cameras.json (camera index -> Sensor ID -> room -> patient),
+# the same file laptop 1 seeds the database from (`npm run seed:cameras`).
+# CAMERA_CONFIG_FILE changes its location; CAMERA_ID_MAP (0:CAM-201,1:CAM-202) overrides it.
+CAMERA_CONFIG_FILE = os.getenv("CAMERA_CONFIG_FILE", "").strip() or str(BASE_DIR.parent / "config" / "cameras.json")
+CAMERA_SETUP: list[CameraEntry] = []
+_camera_override = os.getenv("CAMERA_ID_MAP", "").strip()
+if _camera_override:
+    CAMERA_ID_MAP = _camera_map(_camera_override)
+    print(f"[config] Using CAMERA_ID_MAP from .env (overrides {CAMERA_CONFIG_FILE})")
+else:
+    try:
+        CAMERA_SETUP = load_camera_setup(CAMERA_CONFIG_FILE)
+    except CameraSetupError as exc:
+        sys.exit(f"[config] {exc}")
+    CAMERA_ID_MAP = {e.camera_index: e.device_id for e in CAMERA_SETUP}
+# Sensor ID -> "Floor 2 · Room 201 · Eleanor Whitfield" for logs (empty with the .env override).
+CAMERA_LABELS: dict[str, str] = {e.device_id: e.label for e in CAMERA_SETUP}
 SCREENSHOT_FOLDER = os.getenv("SCREENSHOT_FOLDER", "").strip() or str(BASE_DIR / "screenshots")

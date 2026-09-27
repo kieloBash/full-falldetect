@@ -16,6 +16,7 @@ import numpy as np
 import requests
 
 import config
+from camera_setup import print_camera_table
 from node_client import current_stream_base_url, detect_lan_ip, get_alert_sender, upload_screenshot
 from stream_auth import AUDIENCE, ISSUER, verify_stream_token
 
@@ -44,7 +45,12 @@ def main() -> None:
     print(f"  This laptop's IP:   {lan_ip}")
     print(f"  Video address:      {current_stream_base_url()}")
     print(f"  Node key:           {config.NODE_KEY}")
-    print(f"  Cameras:            {config.CAMERA_ID_MAP}\n")
+    if config.CAMERA_SETUP:
+        print(f"  Camera setup:       {config.CAMERA_CONFIG_FILE}")
+        print_camera_table(config.CAMERA_SETUP)
+        print("  (laptop 1 must have run `npm run seed:cameras` with the same file)\n")
+    else:
+        print(f"  Cameras (.env CAMERA_ID_MAP): {config.CAMERA_ID_MAP}\n")
 
     ok = True
     port = urlparse(config.FRONTEND_BASE_URL).port or 80

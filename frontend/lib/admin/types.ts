@@ -1,3 +1,4 @@
+// location: frontend/lib/admin/types.ts
 import type { SensorStatus } from "@/lib/live-monitor/types";
 
 /**
@@ -6,21 +7,6 @@ import type { SensorStatus } from "@/lib/live-monitor/types";
  * directly. Same enum, same meaning — see the README's modeling note.
  */
 export type { SensorStatus };
-
-export interface AdminRoom {
-  id: string;
-  room: string;
-  resident: string;
-  sensorId: string;
-  status: SensorStatus;
-  floorId: string;
-}
-
-export interface AdminFloor {
-  name: string;
-  wing?: string;
-  rooms: AdminRoom[]
-}
 
 export interface Floor {
   id: string;
@@ -35,6 +21,16 @@ export interface Room {
   floorId: string;
   sensorId: string;
   status: SensorStatus;
+}
+
+export interface AdminRoom extends Room {
+  resident: string;
+  notes: string;
+  discharged: boolean;
+}
+
+export interface AdminFloor extends Floor {
+  rooms: AdminRoom[];
 }
 
 export interface Patient {
@@ -53,9 +49,10 @@ export interface FloorFormValues {
 
 export interface RoomFormValues {
   room: string;
+  /** Saved to Sensor.deviceId — must match the camera's ID in backend/.env CAMERA_ID_MAP (e.g. CAM-201). */
   sensorId: string;
   floorId: string;
-  resident?: any;
+  resident?: string;
   status?: string;
 }
 

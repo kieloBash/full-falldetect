@@ -1,6 +1,6 @@
+// location: frontend/lib/live-monitor/utils.ts
 import { BADGE_VARIANT_BY_STATE } from "./constants";
-import type { BadgeVariant, EffectiveState, History, Room } from "./types";
-import { formatInTimeZone } from "date-fns-tz";
+import type { BadgeVariant, EffectiveState, Room } from "./types";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -27,29 +27,6 @@ export function formatClockTime(date: Date = new Date()): string {
 }
 
 
-export function formatDateHistory(iso: string): string {
-  return formatInTimeZone(iso, "Asia/Manila", "MMM d · h:mm a");
-}
-
-export function formatHistoryMessage(h: History): string {
-  const label = h.state.split("_").join("").toLowerCase() as EffectiveState ?? h.state;
-
-  const parts: string[] = [];
-
-  if (h.responder) {
-    parts.push(`${h.responder.firstName} ${h.responder.lastName}`);
-  }
-
-  if (h.falseAlarmReason) {
-    parts.push(h.falseAlarmReason);
-  }
-
-  const detail = parts.join(" — ");
-  const message = detail ? `${label} — ${detail}` : label;
-
-  return `${message}`;
-}
-
 /**
  * A room's displayed state folds sensor connectivity into the alert
  * lifecycle: an idle room with an offline sensor should read as "offline",
@@ -66,15 +43,4 @@ export function badgeVariantFor(room: Room): BadgeVariant {
 export function elapsedSeconds(startedAt: number | null, now: number): number {
   if (!startedAt) return 0;
   return Math.max(0, Math.floor((now - startedAt) / 1000));
-}
-
-/** AI bounding-box presentation for the camera feed, keyed off effective state. */
-export function detectBox(state: EffectiveState) {
-  const onFloor = state === "active" || state === "acknowledged";
-  return {
-    onFloor,
-    borderClass: state === "active" ? "border-red-500" : state === "acknowledged" ? "border-amber-500" : "border-teal-400",
-    tagBgClass: state === "active" ? "bg-red-500" : state === "acknowledged" ? "bg-amber-500" : "bg-teal-400",
-    tag: onFloor ? "FALL DETECTED" : "Person",
-  };
 }

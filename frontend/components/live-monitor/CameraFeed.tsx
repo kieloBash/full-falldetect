@@ -1,10 +1,10 @@
+// location: frontend/components/live-monitor/CameraFeed.tsx
 "use client";
 
 import { COPY } from "@/lib/live-monitor/constants";
 import type { Room } from "@/lib/live-monitor/types";
 import { effState, formatCameraStamp } from "@/lib/live-monitor/utils";
 import { Icon } from "@/components/icons/Icon";
-import { useState, useEffect } from "react";
 import { RemoteCameraFeed } from "@/components/detection-node/RemoteCameraFeed";
 
 export interface CameraFeedProps {
@@ -16,18 +16,14 @@ export interface CameraFeedProps {
 }
 
 /**
- * Live MJPEG camera feed.
+ * Live camera feed for one room.
  *
- * The backend (backend/main.py) runs a Flask server on :8002 that serves
- * annotated frames at GET http://localhost:8002/stream/{deviceId}
+ * The video comes straight from the camera laptop's video server (port 8002) on
+ * the Wi-Fi. `RemoteCameraFeed` asks GET /api/stream-token for a short-lived URL
+ * and shows its own error state if the laptop is offline.
  *
- * Since everything runs locally, the browser hits Flask directly —
- * no Next.js proxy needed.
- *
- * Falls back to the placeholder gradient when:
- *  - the sensor is offline
- *  - no deviceId is set on the room's sensor in the DB
- *  - the stream errors (Flask not running / camera disconnected)
+ * Shows a "no camera" panel when the sensor is offline or the room has no
+ * Sensor ID (Admin → Room Management).
  */
 export function CameraFeed({
   room,
@@ -39,21 +35,8 @@ export function CameraFeed({
   const state = effState(room);
   const online = room.sensorStatus !== "offline";
 
-  // deviceId is set on the Sensor row in the DB (e.g. "CAM-1")
-  // and must match what backend/main.py uses as the camera_id.
-  const deviceId = (room as any).deviceId as string | null | undefined;
-
-  // Direct to the Flask MJPEG server — no proxy needed for local setup
-  const streamUrl = deviceId
-    ? `http://localhost:8002/stream/${encodeURIComponent(deviceId)}`
-    : null;
-
-  const [imgError, setImgError] = useState(false);
-
-  // Reset error flag whenever the room/device changes
-  useEffect(() => {
-    setImgError(false);
-  }, [deviceId]);
+  // Sensor.deviceId (e.g. "CAM-201"), set in Admin → Room Management.
+  const deviceId = room.deviceId ?? null;
 
   // ── Offline ───────────────────────────────────────────────────────────────
   if (!online) {
@@ -68,17 +51,11 @@ export function CameraFeed({
   }
 
   // ── Live MJPEG stream ─────────────────────────────────────────────────────
-  if (streamUrl && !imgError) {
+  if (deviceId) {
     return (
       <div className={`relative ${heightClassName} overflow-hidden bg-[#0B1220]`}>
 
         {/* MJPEG stream — backend already draws the detection overlay on the frame */}
-        {/* <img
-          src={streamUrl}
-          alt={`Live feed — Room ${room.label}`}
-          className="h-full w-full object-cover"
-          onError={() => setImgError(true)}
-        /> */}
         <RemoteCameraFeed deviceId={deviceId ?? ""} className="h-full w-full" />
 
         {/* REC badge */}
@@ -172,7 +149,7 @@ export function CameraFeed({
       {/* Stream unavailable notice */}
       <div className="absolute inset-0 flex items-end justify-center pb-3">
         <span className="rounded bg-slate-900/70 px-2 py-1 text-[9px] text-slate-400">
-          {imgError ? "Stream unavailable" : "No camera configured"}
+          No camera configured
         </span>
       </div>
 

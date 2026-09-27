@@ -1,15 +1,16 @@
+// location: frontend/components/admin/AdminTopBar.tsx
 "use client";
 
 import { Icon } from "@/components/icons/Icon";
 import { ADMIN_ROUTES, COPY } from "@/lib/admin/constants";
 import { COPY as LIVE_MONITOR_COPY } from "@/lib/live-monitor/constants";
 import { usePathname } from "next/navigation";
-import { ProfileDropdown } from "../ui/profile-dropdown";
+import { ProfileDropdown } from "@/components/ui/profile-dropdown";
 
-/** Global chrome for the Admin section: brand, "Admin" badge, breadcrumb (label derived from the current route), help, user menu. */
+/** Global chrome for the Admin section: brand, "Admin" badge, current page, user menu. */
 export function AdminTopBar() {
   const pathname = usePathname();
-  const activeLabel = ADMIN_ROUTES.find((r) => r.path === pathname)?.label ?? COPY.badge;
+  const activeLabel = ADMIN_ROUTES.find((r) => r.path === pathname)?.label;
 
   return (
     <header className="z-30 flex h-[60px] flex-none items-center gap-5 border-b border-slate-200 bg-white px-5">
@@ -24,24 +25,11 @@ export function AdminTopBar() {
         {COPY.badge}
       </span>
 
-      <div className="flex items-center gap-[7px] text-[13px] text-slate-400">
-        <span>{COPY.breadcrumbBase}</span>
-        <span>&rsaquo;</span>
-        <span className="font-medium text-slate-600">{activeLabel}</span>
-      </div>
+      {activeLabel && <span className="text-[13px] font-medium text-slate-600">{activeLabel}</span>}
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          title="Help"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          ?
-        </button>
-        <ProfileDropdown />
-      </div>
+      <ProfileDropdown />
     </header>
   );
 }

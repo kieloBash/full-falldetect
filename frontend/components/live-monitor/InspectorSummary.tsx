@@ -1,3 +1,4 @@
+// location: frontend/components/live-monitor/InspectorSummary.tsx
 import type { ReactNode } from "react";
 import type { ActivityItem } from "@/lib/live-monitor/types";
 
@@ -14,7 +15,7 @@ const QUICK_GUIDE: { step: string; bgClass: string; textClass: string; content: 
     textClass: "text-teal-700",
     content: (
       <>
-        Acknowledge within 10 s — press <b className="text-slate-900">A</b> on the selected room.
+        <b className="text-slate-900">Acknowledge</b> to stop the alarm — or press <b className="text-slate-900">A</b> on the selected room.
       </>
     ),
   },
@@ -24,7 +25,7 @@ const QUICK_GUIDE: { step: string; bgClass: string; textClass: string; content: 
     textClass: "text-teal-700",
     content: (
       <>
-        Respond, then <b className="text-slate-900">Mark resolved</b> with an outcome.
+        Check on the resident, then <b className="text-slate-900">Mark resolved</b>.
       </>
     ),
   },

@@ -1,22 +1,17 @@
+// location: frontend/components/auth/AuthScreen.tsx
 "use client";
 
 import { useAuthForm, type UseAuthFormOptions } from "@/lib/auth/useAuthForm";
-import { AuthSuccess } from "./AuthSuccess";
-import { AuthTabs } from "./AuthTabs";
+import { AuthSuccess } from "@/components/auth/AuthSuccess";
 import { BrandPanel } from "./BrandPanel";
-import { LoginForm } from "./LoginForm";
-import { RegisterForm } from "./RegisterForm";
+import { LoginForm } from "@/components/auth/LoginForm";
 
 export type AuthScreenProps = UseAuthFormOptions;
 
 /**
- * FallDetect — Auth (sign in / create account / success), split-panel
- * layout: a dark brand panel on the left, the active form on the right.
- *
- * Fully self-contained: render `<AuthScreen />` and it owns its own state
- * via `useAuthForm`. Pass `onAuthenticated` to navigate once the user
- * clicks through from the success screen — without it, the component just
- * resets back to the sign-in tab (the original prototype's demo behavior).
+ * FallDetect — Sign in, split-panel layout: a dark brand panel on the left,
+ * the form on the right. Self-registration was removed: an administrator
+ * creates every staff account in Admin → User Management.
  */
 export function AuthScreen(props: AuthScreenProps) {
   const auth = useAuthForm(props);
@@ -27,11 +22,8 @@ export function AuthScreen(props: AuthScreenProps) {
         <BrandPanel />
 
         <div className="flex flex-col p-11">
-          <AuthTabs mode={auth.mode} onShowLogin={auth.showLogin} onShowRegister={auth.showRegister} />
-
-          {auth.mode === "login" && <LoginForm form={auth.login} onSwitchToRegister={auth.showRegister} />}
-          {auth.mode === "register" && <RegisterForm form={auth.register} onSwitchToLogin={auth.showLogin} />}
-          {auth.mode === "done" && <AuthSuccess kind={auth.doneKind} onContinue={auth.onContinue} />}
+          {auth.mode === "login" && <LoginForm form={auth.login} />}
+          {auth.mode === "done" && <AuthSuccess onContinue={auth.onContinue} />}
         </div>
       </div>
     </div>

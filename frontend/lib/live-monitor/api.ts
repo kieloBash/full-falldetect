@@ -1,23 +1,17 @@
-import type { ActivityItem, Room } from "./types";
+// location: frontend/lib/live-monitor/api.ts
+import { apiClient } from "@/lib/api/client";
+import type { ActivityItem, Room } from "@/lib/live-monitor/types";
 
 /**
- * Live Monitor API layer. Signatures are unchanged from the mock version —
- * the hook and components import exactly the same names — but each now calls
- * a real route handler under `app/api/*` that talks to Prisma. The server
- * projects the normalized DB rows back into the flat `Room` shape (see
- * `lib/live-monitor-server/projection.ts`), so the client still receives the
- * same objects it always did.
+ * Live Monitor API layer (axios, see lib/api/client.ts). Each function throws
+ * ApiError with the server's `{ error }` message on non-2xx. The server projects
+ * DB rows into the flat `Room` shape (lib/live-monitor-server/projection.ts).
  */
 
-async function json<T>(res: Response): Promise<T> {
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error((data && data.error) || "Request failed.");
-  return data as T;
-}
-
+/** Rooms on one floor. `floor` is a Floor id; empty = the facility's first floor. */
 export async function fetchRooms(floor?: string | null): Promise<Room[]> {
-  const qs = floor ? `?floor=${encodeURIComponent(floor)}` : "?floor=";
-  return json<Room[]>(await fetch(`/api/monitor${qs}`));
+  const { data } = await apiClient.get<Room[]>("/monitor", { params: { floor: floor ?? "" } });
+  return data;
 }
 
 export interface AcknowledgeResult {
@@ -25,25 +19,20 @@ export interface AcknowledgeResult {
 }
 
 export async function acknowledgeAlert(roomId: string): Promise<AcknowledgeResult> {
-  return json<AcknowledgeResult>(await fetch(`/api/alerts/${roomId}/acknowledge`, { method: "POST" }));
+  const { data } = await apiClient.post<AcknowledgeResult>(`/alerts/${roomId}/acknowledge`);
+  return data;
 }
 
 export async function resolveAlert(roomId: string): Promise<void> {
-  await json(await fetch(`/api/alerts/${roomId}/resolve`, { method: "POST" }));
+  await apiClient.post(`/alerts/${roomId}/resolve`);
 }
 
 export async function flagFalseAlarm(roomId: string, reason: string): Promise<void> {
-  await json(
-    await fetch(`/api/alerts/${roomId}/false-alarm`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason }),
-    })
-  );
+  await apiClient.post(`/alerts/${roomId}/false-alarm`, { reason });
 }
 
 export async function reconnectSensor(roomId: string): Promise<void> {
-  await json(await fetch(`/api/sensors/${roomId}/reconnect`, { method: "POST" }));
+  await apiClient.post(`/sensors/${roomId}/reconnect`);
 }
 
 export interface SimulateFallResult {
@@ -51,40 +40,30 @@ export interface SimulateFallResult {
   incidentId: string;
 }
 
-/** Creates a real ACTIVE incident. `roomId` targets a room; otherwise the
- *  server picks an eligible room on `floor`. */
+/** Simulate Fall: creates a real ACTIVE incident. Omit `roomId` to pick a random eligible room on `floor` (id). */
 export async function createAlert(input: { roomId?: string; floor?: string }): Promise<SimulateFallResult> {
-  return json<SimulateFallResult>(
-    await fetch(`/api/alerts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    })
-  );
+  const { data } = await apiClient.post<SimulateFallResult>("/alerts", input);
+  return data;
 }
 
 /* ── Pinned rooms (per-user) ──────────────────────────────────────────── */
 
 export async function fetchPinned(): Promise<string[]> {
-  return json<string[]>(await fetch(`/api/pinned`));
+  const { data } = await apiClient.get<string[]>("/pinned");
+  return data;
 }
 
 export async function pinRoom(roomId: string): Promise<void> {
-  await json(
-    await fetch(`/api/pinned`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId }),
-    })
-  );
+  await apiClient.post("/pinned", { roomId });
 }
 
 export async function unpinRoom(roomId: string): Promise<void> {
-  await json(await fetch(`/api/pinned/${roomId}`, { method: "DELETE" }));
+  await apiClient.delete(`/pinned/${roomId}`);
 }
 
 /* ── Activity feed (facility-wide) ────────────────────────────────────── */
 
 export async function fetchActivity(limit = 12): Promise<ActivityItem[]> {
-  return json<ActivityItem[]>(await fetch(`/api/activity?limit=${limit}`));
+  const { data } = await apiClient.get<ActivityItem[]>("/activity", { params: { limit } });
+  return data;
 }

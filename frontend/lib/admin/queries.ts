@@ -1,3 +1,4 @@
+// location: frontend/lib/admin/queries.ts
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,6 +34,29 @@ export function useCreateFloorMutation() {
   return useMutation({
     mutationFn: (values: FloorFormValues) => api.createFloor(values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: adminKeys.floors }),
+  });
+}
+
+export function useUpdateFloorMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ floorId, values }: { floorId: string; values: FloorFormValues }) => api.updateFloor(floorId, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.floors });
+      // Live Monitor's floor picker uses its own key.
+      queryClient.invalidateQueries({ queryKey: ["floors"] });
+    },
+  });
+}
+
+export function useDeleteFloorMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (floorId: string) => api.deleteFloor(floorId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminKeys.floors });
+      queryClient.invalidateQueries({ queryKey: ["floors"] });
+    },
   });
 }
 
