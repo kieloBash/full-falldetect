@@ -82,7 +82,7 @@ ALERT_RETRY_INTERVAL_SEC = _int("ALERT_RETRY_INTERVAL_SEC", 10)
 ALERT_MAX_AGE_MIN = _int("ALERT_MAX_AGE_MIN", 60)  # older queued alerts are dropped
 
 # ── Model + cameras ────────────────────────────────────────────────
-WEIGHTS_PATH = os.getenv("WEIGHTS_PATH", "").strip() or str(BASE_DIR / "model" / "best_v2.pt")
+WEIGHTS_PATH = os.getenv("WEIGHTS_PATH", "").strip() or str(BASE_DIR / "model" / "best_v3.pt")
 # Cameras come from the shared config/cameras.json (camera index -> Sensor ID -> room -> patient),
 # the same file laptop 1 seeds the database from (`npm run seed:cameras`).
 # CAMERA_CONFIG_FILE changes its location; CAMERA_ID_MAP (0:CAM-201,1:CAM-202) overrides it.
