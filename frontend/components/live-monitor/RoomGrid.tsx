@@ -1,3 +1,4 @@
+// location: frontend/components/live-monitor/RoomGrid.tsx
 import { COPY } from "@/lib/live-monitor/constants";
 import type { Room } from "@/lib/live-monitor/types";
 import { AlertTile } from "./AlertTile";
@@ -7,6 +8,8 @@ export interface RoomGridProps {
   rooms: Room[];
   now: number;
   selectedId: string | null;
+  /** Tile to flash after "View room". */
+  highlightedId?: string | null;
   reducedMotion: boolean;
   onSelect: (id: string) => void;
   onAcknowledge: (id: string) => void;
@@ -16,7 +19,7 @@ export interface RoomGridProps {
 }
 
 /** Default Live Monitor view: every monitored room as an AlertTile, sorted urgent-first. */
-export function RoomGrid({ rooms, now, selectedId, reducedMotion, onSelect, onAcknowledge, onFlagFalseAlarm, onResolve, onClearSearch }: RoomGridProps) {
+export function RoomGrid({ rooms, now, selectedId, highlightedId = null, reducedMotion, onSelect, onAcknowledge, onFlagFalseAlarm, onResolve, onClearSearch }: RoomGridProps) {
   if (rooms.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-10 text-slate-400">
@@ -41,6 +44,7 @@ export function RoomGrid({ rooms, now, selectedId, reducedMotion, onSelect, onAc
           room={room}
           now={now}
           selected={selectedId === room.id}
+          highlighted={highlightedId === room.id}
           reducedMotion={reducedMotion}
           onSelect={() => onSelect(room.id)}
           onAcknowledge={() => onAcknowledge(room.id)}

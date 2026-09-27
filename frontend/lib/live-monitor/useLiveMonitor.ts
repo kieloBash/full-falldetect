@@ -19,6 +19,8 @@ import {
 import type { ActivityItem, Floor, FloorId, Room, Toast, ViewMode } from "./types";
 import { effState } from "./utils";
 
+const HIGHLIGHT_MS = 2_500;
+
 export interface UseLiveMonitorOptions {
   /** Swap pulsing/flashing animations for static styles. */
   reduceMotion?: boolean;
@@ -44,6 +46,8 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
   const [liveId, setLiveId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [toasts, setToasts] = useState<Toast[]>([]);
+  /** Room whose tile flashes after "View room" (cleared after HIGHLIGHT_MS). */
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const uid = useRef(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -214,6 +218,34 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     if (!keepView) setView("grid");
   }, []);
 
+  /**
+   * "View room" from the fall pop-up: go to the room's floor in grid view, make sure a
+   * search isn't hiding it, then scroll its tile into view and flash it.
+   */
+  const revealRoom = useCallback(
+    (room: Room) => {
+      const q = query.trim().toLowerCase();
+      if (q && !room.label.toLowerCase().includes(q) && !room.resident.toLowerCase().includes(q)) setQuery("");
+      focusRoom(room);
+      setHighlightId(room.id);
+    },
+    [query, focusRoom]
+  );
+
+  // Scroll to the highlighted tile once it's rendered, then stop flashing.
+  useEffect(() => {
+    if (!highlightId) return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-room-id="${highlightId}"]`);
+      el?.scrollIntoView?.({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+    });
+    const timer = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [highlightId, reduceMotion]);
+
   /* Keyboard shortcuts: A acknowledge · F false alarm · / focus search · Esc close top-most surface */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -340,6 +372,8 @@ export function useLiveMonitor(options: UseLiveMonitorOptions = {}) {
     openCameraModal,
     closeCameraModal,
     jumpToFirstActiveAlert,
+    revealRoom,
+    highlightId,
   };
 }
 

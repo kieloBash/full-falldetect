@@ -11,6 +11,7 @@
     "start:lan": "next start -H 0.0.0.0 -p 3000",
     "lint": "eslint",
     "seed:demo": "tsx prisma/seed-demo.ts",
+    "seed:cameras": "tsx prisma/seed-cameras.ts",
     "seed:nodes": "tsx prisma/seed-detection-node.ts",
     "simulate:node": "node --env-file=.env scripts/simulate-node.mjs"
   },

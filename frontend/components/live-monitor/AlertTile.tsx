@@ -10,6 +10,8 @@ export interface AlertTileProps {
   room: Room;
   now: number;
   selected: boolean;
+  /** Briefly true after "View room", so the nurse's eye lands on the tile. */
+  highlighted?: boolean;
   reducedMotion: boolean;
   onSelect: () => void;
   onAcknowledge: () => void;
@@ -22,7 +24,7 @@ export interface AlertTileProps {
  * idle → active (red, pulsing) → acknowledged (amber) → resolved (green
  * flash) → back to idle, or active → false alarm (fades gray).
  */
-export function AlertTile({ room, now, selected, reducedMotion, onSelect, onAcknowledge, onFlagFalseAlarm, onResolve }: AlertTileProps) {
+export function AlertTile({ room, now, selected, highlighted = false, reducedMotion, onSelect, onAcknowledge, onFlagFalseAlarm, onResolve }: AlertTileProps) {
   const state = effState(room);
   const sensor = SENSOR_META[room.sensorStatus];
   const elapsed = elapsedSeconds(room.startedAt, now);
@@ -42,13 +44,19 @@ export function AlertTile({ room, now, selected, reducedMotion, onSelect, onAckn
               : "border border-slate-200 bg-white p-3.5";
 
   const hoverClass = state === "active" ? "" : "hover:shadow-[0_1px_6px_rgba(15,23,42,.09)]";
-  const selectedClass = selected ? "outline outline-2 outline-offset-1 outline-teal-600" : "";
+  const selectedClass = highlighted
+    ? "outline outline-4 outline-offset-2 outline-teal-500 ring-8 ring-teal-400/30"
+    : selected
+      ? "outline outline-2 outline-offset-1 outline-teal-600"
+      : "";
 
   const stopPropagation = (e: MouseEvent) => e.stopPropagation();
 
   return (
     <div
       onClick={onSelect}
+      data-room-id={room.id}
+      data-highlighted={highlighted ? "true" : undefined}
       className={`relative box-border flex flex-col gap-[11px] rounded-lg transition-shadow ${stateClasses} ${hoverClass} ${selectedClass} cursor-pointer`}
     >
       <div className="flex items-start justify-between gap-2">

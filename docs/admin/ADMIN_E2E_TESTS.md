@@ -131,7 +131,7 @@ Uses the data from sections B–E. `NEXT_PUBLIC_SHOW_SIMULATE_FALL=true` must be
 
 | ID | Test | Steps | Expected | Actual | Pass/Fail |
 |---|---|---|---|---|---|
-| G-01 | Alert reaches an Admin-created room | Laptop 2: `CAMERA_ID_MAP` includes `CAM-301`; run `python demo_stream.py --alert CAM-301` (or `main.py` and leave the bed) | Fall alert for Room 301 (Walter Kim) appears on the Live Monitor. Proves fix #10 | | |
+| G-01 | Alert reaches an Admin-created room | Laptop 2: `config/cameras.json` has a camera with `"deviceId": "CAM-301"`; run `python demo_stream.py --alert CAM-301` (or `main.py` and leave the bed) | Fall alert for Room 301 (Walter Kim) appears on the Live Monitor. Proves fix #10 | | |
 
 ---
 

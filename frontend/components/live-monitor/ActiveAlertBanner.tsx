@@ -10,6 +10,7 @@ export interface ActiveAlertBannerProps {
   /** Floor currently on screen, to say when the fall is elsewhere. */
   currentFloorId: string | null;
   reducedMotion: boolean;
+  /** Reopens the fall pop-up (and switches to the fall's floor). */
   onJumpToAlert: () => void;
 }
 

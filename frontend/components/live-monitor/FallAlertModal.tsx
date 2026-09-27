@@ -12,7 +12,7 @@ export interface FallAlertModalProps {
   /** The oldest active fall (current floor first). */
   activeRoom: Room | null;
   reducedMotion: boolean;
-  /** Switch to the room's floor and select it. */
+  /** Close the pop-up and show the room: switch floor, select, scroll to and flash its tile. */
   onJumpToAlert: () => void;
   /** Acknowledge the shown room directly (stops the alarm if it's the last active fall). */
   onAcknowledge: () => void;
@@ -28,11 +28,15 @@ export interface FallAlertModalProps {
 export function FallAlertModal({ activeCount, activeRoom, reducedMotion, onJumpToAlert, onAcknowledge, onDismiss }: FallAlertModalProps) {
   const screenshotSrc = resolveScreenshotSrc(activeRoom?.screenshotPath);
 
-  // Escape hides the pop-up; stop the page scrolling behind it.
+  // Escape hides the pop-up (and only that: stopPropagation keeps the Live Monitor's own
+  // Escape shortcut from also clearing the selected room). Stop the page scrolling behind it.
   useEffect(() => {
     if (activeCount === 0) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onDismiss();
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onDismiss();
+      }
     };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;

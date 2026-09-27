@@ -59,6 +59,18 @@ async function main() {
     },
   });
 
+  await prisma.user.create({
+    data: {
+      facilityId: facility.id,
+      firstName: "Facility",
+      lastName: "Nurse",
+      email: "nurse@fall.example",
+      passwordHash: await hashPassword(ADMIN_PASSWORD),
+      role: UserRole.NURSE,
+      isActive: true,
+    },
+  });
+
   const counts = {
     facilities: await prisma.facility.count(),
     users: await prisma.user.count(),
@@ -73,7 +85,7 @@ async function main() {
   console.log(`  admin:     ${ADMIN_EMAIL}  (password: ${process.env.SEED_ADMIN_PASSWORD ? "from SEED_ADMIN_PASSWORD" : ADMIN_PASSWORD})`);
   console.log(
     `  counts:    ${counts.facilities} facility, ${counts.users} user, ${counts.floors} floors, ` +
-      `${counts.rooms} rooms, ${counts.residents} residents, ${counts.incidents} incidents`
+    `${counts.rooms} rooms, ${counts.residents} residents, ${counts.incidents} incidents`
   );
   console.log("  next:      sign in as the admin and create floors, rooms, patients and nurse accounts,");
   console.log("             or run `npm run seed:demo` for a ready-made test setup.");

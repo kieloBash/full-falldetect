@@ -108,7 +108,7 @@ The facility timezone in the clean seed is `Asia/Manila`.
 ## Design decisions
 
 - **Sensor ID is required and matched exactly.** Ingest looks up `Sensor.deviceId`, so the ID typed
-  in Room Management must match `CAMERA_ID_MAP` in `backend/.env` character for character
+  in Room Management must match the `deviceId` in `config/cameras.json` (read by the camera laptop) character for character
   (e.g. `CAM-201`). Leading/trailing spaces are trimmed; case is kept.
 - **Incidents are never deleted.** Rooms and patients with incidents can't be deleted. Discharge
   the patient instead; a room can keep existing without a patient.

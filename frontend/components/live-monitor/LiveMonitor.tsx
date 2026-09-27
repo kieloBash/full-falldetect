@@ -71,7 +71,7 @@ export function LiveMonitor(props: LiveMonitorProps) {
         reducedMotion={m.reducedMotion}
         onJumpToAlert={() => {
           setModalDismissed(true);
-          m.jumpToFirstActiveAlert();
+          if (m.firstActiveRoom) m.revealRoom(m.firstActiveRoom);
         }}
         onAcknowledge={() => m.firstActiveRoom && m.acknowledge(m.firstActiveRoom.id)}
         onDismiss={() => setModalDismissed(true)}
@@ -81,7 +81,11 @@ export function LiveMonitor(props: LiveMonitorProps) {
         firstRoom={m.firstActiveRoom}
         currentFloorId={m.floor}
         reducedMotion={m.reducedMotion}
-        onJumpToAlert={m.jumpToFirstActiveAlert}
+        // Reopen the fall pop-up (screenshot, confidence, Acknowledge) and go to its floor.
+        onJumpToAlert={() => {
+          m.jumpToFirstActiveAlert();
+          setModalDismissed(false);
+        }}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -109,6 +113,7 @@ export function LiveMonitor(props: LiveMonitorProps) {
                 rooms={m.sortedRooms}
                 now={m.now}
                 selectedId={m.selectedRoom?.id ?? null}
+                highlightedId={m.highlightId}
                 reducedMotion={m.reducedMotion}
                 onSelect={m.selectRoom}
                 onAcknowledge={m.acknowledge}

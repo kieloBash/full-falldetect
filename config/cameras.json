@@ -1,0 +1,20 @@
+{
+  "$comment": "location: config/cameras.json — ONE place that links each camera to its sensor, room and patient. Read by backend/config.py (laptop 2) and by `npm run seed:cameras` (laptop 1). Keep the same copy on both laptops. No secrets here.",
+  "facility": "Fall Detect Clinic",
+  "cameras": [
+    {
+      "cameraIndex": 0,
+      "deviceId": "CAM-201",
+      "floor": "2",
+      "room": "201",
+      "patient": "Patient 0"
+    },
+    {
+      "cameraIndex": 1,
+      "deviceId": "CAM-202",
+      "floor": "2",
+      "room": "202",
+      "patient": "Patient 1"
+    }
+  ]
+}
