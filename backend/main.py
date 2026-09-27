@@ -20,10 +20,10 @@ import queue
 import threading
 import time
 from datetime import datetime
-
 import cv2
+from datetime import datetime
 from ultralytics import YOLO
-
+from fall_detector import FallDetector
 import config
 from node_client import Heartbeat, current_stream_base_url, get_alert_sender, send_fall_alert
 from stream_server import frame_store, start_stream_server
@@ -34,13 +34,25 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefm
 # ── Config (from backend/.env via config.py) ───────────────────────────────────
 WEIGHTS_PATH            = config.WEIGHTS_PATH
 CAMERA_ID_MAP           = config.CAMERA_ID_MAP      # e.g. {0: "CAM-201"}
-SCREENSHOT_FOLDER       = config.SCREENSHOT_FOLDER  # local copy, backend/screenshots
+SCREENSHOT_FOLDER       = config.SCREENSHOT_FOLDER  
+
+# ── Config ─────────────────────────────────────────────────────────────────────
 CONF                    = 0.2
-INITIAL_ALERT_DELAY_SEC = 5
 REPEAT_ALERT_INTERVAL   = 10
 MAX_REPEAT_ALERTS       = 4
 INFER_SKIP              = 2
-FIRST_FRAME_WAIT_SEC    = 60   # max wait for models to load before the first heartbeat
+FIRST_FRAME_WAIT_SEC    = 60   
+INFER_SIZE              = 640  
+
+PATIENT_CLASS_NAME      = "patient"
+BED_CLASS_NAME          = "bed"
+
+FALLBACK_CAMERA_FPS     = 30
+
+
+# MJPEG stream server
+STREAM_HOST             = "0.0.0.0"
+STREAM_PORT             = 8002
 
 # ── Platform detection ─────────────────────────────────────────────────────────
 IS_WINDOWS = platform.system() == "Windows"
@@ -143,13 +155,13 @@ def save_screenshot(frame, camera_id):
 
 
 # ── Alert ──────────────────────────────────────────────────────────────────────
-def fire_alert(camera_id: str, timestamp: str, screenshot_path: str | None,
-               alert_count: int, missing_secs: int, confidence: float = 0.0):
+def fire_alert(camera_id: str, timestamp: str, screenshot_path: str,
+               alert_count: int, reason: str, confidence: float = 0.0):
     print("\n" + "=" * 55)
     print(f"  FALL ALERT #{alert_count} -- Camera {camera_id}")
     print(f"  Timestamp   : {timestamp}")
-    print(f"  Missing for : {missing_secs}s")
-    print(f"  Screenshot  : {screenshot_path or 'none'}")
+    print(f"  Reason      : {reason}")
+    print(f"  Screenshot  : {screenshot_path}")
     print("=" * 55 + "\n")
 
     # Only the first alert of an episode creates an incident; repeats come back
@@ -173,6 +185,10 @@ class CameraMonitor:
         self.running      = threading.Event()
         self.running.set()
         self.threads      = []
+
+        self.camera_fps   = None
+        self.fps_ready     = threading.Event()
+        self.fall_detector = None  
 
     def start(self):
         t1 = threading.Thread(target=self._camera_reader,  daemon=True)
@@ -204,6 +220,14 @@ class CameraMonitor:
             self.running.clear()
             return
 
+        raw_fps = cap.get(cv2.CAP_PROP_FPS)
+        if not raw_fps or raw_fps <= 1 or raw_fps > 120:
+            print(f"[{self.camera_id}] Camera reported unreliable FPS "
+                  f"({raw_fps}), using fallback {FALLBACK_CAMERA_FPS}")
+            raw_fps = FALLBACK_CAMERA_FPS
+        self.camera_fps = raw_fps
+        self.fps_ready.set()
+
         frame_idx = 0
         while self.running.is_set():
             ret, frame = cap.read()
@@ -219,26 +243,37 @@ class CameraMonitor:
             self.frame_queue.put((frame_idx, frame))
         cap.release()
 
-    def _annotate_and_publish(self, frame, detected_class, confidence):
-        """Draw detection overlay onto frame and push it to the stream server."""
+    def _annotate_and_publish(self, frame, patient_box, bed_box, state):
+        """Draw the model's actual detection boxes + fall-detector state onto the frame."""
         annotated = frame.copy()
         h, w = annotated.shape[:2]
 
-        if detected_class == "patient_on_bed":
-            color = (0, 200, 150)
-            label = f"Patient on bed  {confidence:.0%}"
-        elif detected_class is not None:
-            color = (220, 120, 0)
-            label = f"{detected_class}  {confidence:.0%}"
-        else:
-            color = (0, 0, 220)
-            label = "No detection"
+        if bed_box is not None:
+            bx1, by1, bx2, by2 = (int(v) for v in bed_box)
+            cv2.rectangle(annotated, (bx1, by1), (bx2, by2), (255, 180, 0), 2)
+            cv2.putText(annotated, "bed", (bx1, by1 - 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 180, 0), 1)
 
-        bx, by = int(w * 0.3), int(h * 0.25)
-        bw, bh = int(w * 0.4), int(h * 0.5)
-        cv2.rectangle(annotated, (bx, by), (bx + bw, by + bh), color, 2)
-        cv2.putText(annotated, label, (bx, by - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        if patient_box is not None:
+            px1, py1, px2, py2 = (int(v) for v in patient_box)
+            patient_color = (0, 0, 220) if (state and state.alert) else (0, 200, 150)
+            cv2.rectangle(annotated, (px1, py1), (px2, py2), patient_color, 2)
+            cv2.putText(annotated, "patient", (px1, py1 - 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, patient_color, 1)
+
+        if state and state.alert:
+            status_color, status_label = (0, 0, 220), f"FALL ALERT: {state.reason}"
+        elif state and state.warning:
+            status_color, status_label = (0, 165, 255), f"Warning: {state.reason}"
+        elif bed_box is None:
+            status_color, status_label = (0, 0, 220), "No bed detected"
+        elif patient_box is None:
+            status_color, status_label = (150, 150, 150), "No patient detected"
+        else:
+            status_color, status_label = (0, 200, 150), "Patient on bed"
+
+        cv2.putText(annotated, status_label, (10, h - 15),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
 
         # REC badge
         cv2.circle(annotated, (16, 16), 6, (0, 0, 220), -1)
@@ -263,8 +298,18 @@ class CameraMonitor:
             self.running.clear()
             return
         class_names = self.model.names
-        last_result = {"class": None, "confidence": None, "frame": None}
-        print(f"[{self.camera_id}] Model loaded — inference started")
+        print(f"[{self.camera_id}] Model loaded — waiting for camera FPS...")
+
+        self.fps_ready.wait(timeout=5)
+        effective_fps = (self.camera_fps or FALLBACK_CAMERA_FPS) / INFER_SKIP
+        self.fall_detector = FallDetector(fps=effective_fps, sustained_seconds=3.0)
+        print(f"[{self.camera_id}] Inference started "
+              f"(camera_fps={self.camera_fps}, effective inference fps={effective_fps:.2f})")
+
+        last_patient_box = None
+        last_bed_box     = None
+        last_state       = None
+        last_confidence  = 0.0
 
         while self.running.is_set():
             try:
@@ -273,41 +318,55 @@ class CameraMonitor:
                 continue
 
             if frame_idx % INFER_SKIP == 0:
-                resized = cv2.resize(frame, (640, 640))
+                h0, w0 = frame.shape[:2]
+                scale_x, scale_y = w0 / INFER_SIZE, h0 / INFER_SIZE
+
+                resized = cv2.resize(frame, (INFER_SIZE, INFER_SIZE))
                 results = self.model(resized, conf=CONF, verbose=False)
                 boxes   = results[0].boxes
-                if len(boxes) > 0:
-                    best   = max(boxes, key=lambda b: b.conf.item())
-                    cls_id = int(best.cls.item())
-                    last_result = {
-                        "class"     : class_names.get(cls_id, str(cls_id)),
-                        "confidence": round(float(best.conf.item()), 4),
-                        "frame"     : frame,
-                    }
-                else:
-                    last_result = {"class": None, "confidence": None, "frame": frame}
-            else:
-                last_result = {**last_result, "frame": frame}
 
-            self._annotate_and_publish(
-                last_result["frame"],
-                last_result["class"],
-                last_result["confidence"] or 0.0,
-            )
+                patient_box, patient_conf = None, 0.0
+                bed_box, bed_conf         = None, 0.0
+
+                for b in boxes:
+                    cls_id = int(b.cls.item())
+                    name   = class_names.get(cls_id, str(cls_id))
+                    conf   = float(b.conf.item())
+                    x1, y1, x2, y2 = b.xyxy[0].tolist()
+                    # scale from the 640x640 inference frame back to real frame coords
+                    box_orig = (x1 * scale_x, y1 * scale_y, x2 * scale_x, y2 * scale_y)
+
+                    if name == PATIENT_CLASS_NAME and conf > patient_conf:
+                        patient_box, patient_conf = box_orig, conf
+                    elif name == BED_CLASS_NAME and conf > bed_conf:
+                        bed_box, bed_conf = box_orig, conf
+
+                # One update() call per actual inference step -- this is what
+                # keeps FallDetector's sustained-duration/velocity math correct.
+                state = self.fall_detector.update(patient_box, bed_box)
+
+                last_patient_box = patient_box
+                last_bed_box     = bed_box
+                last_state       = state
+                last_confidence  = max(patient_conf, bed_conf)
+
+            self._annotate_and_publish(frame, last_patient_box, last_bed_box, last_state)
 
             if self.result_queue.full():
                 try: self.result_queue.get_nowait()
                 except queue.Empty: pass
             self.result_queue.put({
-                "frame_idx" : frame_idx,
-                "timestamp" : datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                **last_result,
+                "frame_idx"  : frame_idx,
+                "timestamp"  : datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "state"      : last_state,
+                "confidence" : last_confidence,
+                "frame"      : frame,
             })
 
     def _alert_monitor(self):
-        missing_since   = None
         last_alert_time = None
         alert_count     = 0
+        was_in_alert    = False
 
         while self.running.is_set():
             time.sleep(0.5)
@@ -316,44 +375,54 @@ class CameraMonitor:
             except queue.Empty:
                 continue
 
-            patient_detected = result.get("class") == "patient_on_bed"
-            now    = time.time()
-            status = result.get("class") or "no_detection"
-            conf   = result.get("confidence")
-            print(f"  [{self.camera_id}] Frame {result.get('frame_idx'):>6} | "
-                  f"{status:<20}" + (f" | conf={conf:.4f}" if conf else ""))
+            state = result.get("state")
+            now   = time.time()
+            conf  = result.get("confidence")
 
-            if patient_detected:
-                if missing_since is not None:
-                    print(f"  [{self.camera_id}] Patient back — resetting timer")
-                missing_since   = None
+            status = "no data"
+            if state is not None:
+                if state.alert:
+                    status = f"ALERT: {state.reason}"
+                elif state.warning:
+                    status = f"warning: {state.reason}"
+                else:
+                    status = "normal"
+            print(f"  [{self.camera_id}] Frame {result.get('frame_idx'):>6} | "
+                  f"{status:<40}" + (f" | conf={conf:.4f}" if conf else ""))
+
+            in_alert = bool(state and state.alert)
+
+            if not in_alert:
+                if was_in_alert:
+                    print(f"  [{self.camera_id}] Alert condition cleared — resetting")
+                was_in_alert    = False
                 last_alert_time = None
                 alert_count     = 0
                 continue
 
-            if missing_since is None:
-                missing_since = now
-                print(f"  [{self.camera_id}] Not detected — starting {INITIAL_ALERT_DELAY_SEC}s timer")
-
-            missing_secs = now - missing_since
-            should_alert = False
-            if last_alert_time is None and missing_secs >= INITIAL_ALERT_DELAY_SEC:
-                should_alert = True
+            # in_alert is True from here down
+            should_fire = False
+            if not was_in_alert:
+                # first frame of a new alert episode -- fire immediately
+                should_fire = True
             elif (last_alert_time is not None
                   and now - last_alert_time >= REPEAT_ALERT_INTERVAL
                   and alert_count < MAX_REPEAT_ALERTS):
-                should_alert = True
+                should_fire = True
 
-            if should_alert:
+            was_in_alert = True
+
+            if should_fire:
                 alert_count    += 1
                 last_alert_time = now
                 frame      = result.get("frame")
                 screenshot = save_screenshot(frame, self.camera_id) if frame is not None else None
                 confidence = result.get("confidence") or 0.0
+                reason     = state.reason if state else "unknown"
                 threading.Thread(
                     target=fire_alert,
                     args=(self.camera_id, result.get("timestamp"), screenshot,
-                          alert_count, round(missing_secs), confidence),
+                          alert_count, reason, confidence),
                     daemon=True,
                 ).start()
 

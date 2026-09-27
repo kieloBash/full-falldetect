@@ -80,6 +80,6 @@ ALERT_RETRY_INTERVAL_SEC = _int("ALERT_RETRY_INTERVAL_SEC", 10)
 ALERT_MAX_AGE_MIN = _int("ALERT_MAX_AGE_MIN", 60)  # older queued alerts are dropped
 
 # ── Model + cameras ────────────────────────────────────────────────
-WEIGHTS_PATH = os.getenv("WEIGHTS_PATH", "").strip() or str(BASE_DIR / "model" / "best_v2.pt")
+WEIGHTS_PATH = os.getenv("WEIGHTS_PATH", "").strip() or str(BASE_DIR / "model" / "best_v3.pt")
 CAMERA_ID_MAP = _camera_map(os.getenv("CAMERA_ID_MAP", "0:CAM-201,1:CAM-202"))
 SCREENSHOT_FOLDER = os.getenv("SCREENSHOT_FOLDER", "").strip() or str(BASE_DIR / "screenshots")
