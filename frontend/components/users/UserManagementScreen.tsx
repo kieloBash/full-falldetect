@@ -13,7 +13,7 @@ import { ResetPasswordModal } from "./ResetPasswordModal";
 import { UserTable } from "./UserTable";
 
 /**
- * FallDetect — Admin · User Management (`/admin/users`).
+ * WatchCare — Admin · User Management (`/admin/users`).
  * Admins create every staff account here (there is no self-registration),
  * edit account details, reset forgotten passwords, and deactivate/reactivate accounts.
  */

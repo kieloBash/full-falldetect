@@ -3,7 +3,7 @@ import type { IconName } from "@/components/icons/Icon";
 import type { BadgeVariant, EffectiveState, SensorStatus } from "./types";
 
 /**
- * FallDetect design tokens.
+ * WatchCare design tokens.
  * The brief's palette (slate neutrals, teal accent, red/amber/green semantic
  * colors) maps 1:1 onto Tailwind's default palette, so components use plain
  * Tailwind classes (bg-teal-600, text-slate-600, etc.) instead of a custom
@@ -81,7 +81,7 @@ export const STATE_DOT_CLASS: Record<EffectiveState, string> = {
 };
 
 export const COPY = {
-  productName: "FallDetect",
+  productName: "WatchCare",
   searchPlaceholder: "Search residents or rooms",
   simulateFallLabel: "Simulate fall",
   noRoomsMatch: "No rooms match your search",

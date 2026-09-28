@@ -1,5 +1,5 @@
 <!-- location: docs/detection-node/LAN_SETUP.md -->
-# FallDetect — two-laptop setup on one Wi-Fi
+# WatchCare — two-laptop setup on one Wi-Fi
 
 | | Laptop 1 — head nurse | Laptop 2 — camera laptop |
 |---|---|---|
@@ -103,7 +103,7 @@ needs internet for the app to work.
 
 ```powershell
 Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private
-New-NetFirewallRule -DisplayName "FallDetect web app" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "WatchCare web app" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
 ```
 
 ### 3.4 App
@@ -147,7 +147,7 @@ Firewall (PowerShell as Administrator):
 
 ```powershell
 Set-NetConnectionProfile -InterfaceAlias "Wi-Fi" -NetworkCategory Private
-New-NetFirewallRule -DisplayName "FallDetect video" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "WatchCare video" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private
 ```
 
 If Windows shows an "Allow Python to communicate" prompt, tick **Private networks**.

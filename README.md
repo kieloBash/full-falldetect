@@ -1,4 +1,4 @@
-# FallDetect
+# WatchCare
 
 AI-assisted fall detection for senior care facilities. A model detects a
 fall, an ingest server validates and forwards the event, and a Next.js app

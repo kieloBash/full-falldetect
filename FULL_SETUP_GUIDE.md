@@ -1,13 +1,13 @@
-# FallDetect Installation and Setup Guide
+# WatchCare Installation and Setup Guide
 
 ## Overview
 
-FallDetect runs on **two laptops on the same Wi-Fi**, plus a free **Supabase** project online:
+WatchCare runs on **two laptops on the same Wi-Fi**, plus a free **Supabase** project online:
 
 |  | Laptop 1 — Head Nurse | Laptop 2 — Camera Laptop |
 | --- | --- | --- |
 | Folder used | `frontend/` | `backend/` and `config/` |
-| Runs | The FallDetect website (port 3000) | Camera AI + live video (port 8002) |
+| Runs | The WatchCare website (port 3000) | Camera AI + live video (port 8002) |
 | Needs | Node.js, internet (database) | Python, the webcams, internet (screenshots only) |
 
 Supabase holds the database and the fall screenshots. Laptop 2 sends alerts and a heartbeat to laptop 1 over Wi-Fi; the nurse's browser loads the video straight from laptop 2.
@@ -17,7 +17,7 @@ Supabase holds the database and the fall screenshots. Laptop 2 sends alerts and 
 **Before you start, have ready:**
 
 - [ ] Both laptops on the **same Wi-Fi** (not a guest network)
-- [ ] The FallDetect project folder copied to **both** laptops
+- [ ] The WatchCare project folder copied to **both** laptops
 - [ ] A Supabase account ([supabase.com](https://supabase.com), free)
 - [ ] The webcams plugged into laptop 2
 
@@ -141,7 +141,7 @@ It prints a table of camera → sensor → room → patient. Copy the **same** `
 - **Windows** (PowerShell **as Administrator**):
 
   ```powershell
-  New-NetFirewallRule -DisplayName "FallDetect web app" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
+  New-NetFirewallRule -DisplayName "WatchCare web app" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
   ```
 
   Also set the Wi-Fi to **Private network** (Settings → Network → Wi-Fi → your network).
@@ -219,7 +219,7 @@ CAMERA_CONFIG_FILE=/full/path/to/cameras.json
 - **Windows** (PowerShell **as Administrator**):
 
   ```powershell
-  New-NetFirewallRule -DisplayName "FallDetect video" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private
+  New-NetFirewallRule -DisplayName "WatchCare video" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private
   ```
 
   If Windows asks to "Allow Python to communicate", tick **Private networks**.

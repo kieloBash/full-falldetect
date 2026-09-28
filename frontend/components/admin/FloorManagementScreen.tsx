@@ -13,7 +13,7 @@ import { FloorModal } from "./FloorModal";
 import { FloorRoomsTable } from "./FloorRoomsTable";
 
 /**
- * FallDetect — Admin · Floor Management (`/admin`).
+ * WatchCare — Admin · Floor Management (`/admin`).
  *
  * Floor list on the left; the selected floor's rooms (read-only — room CRUD
  * lives on `/admin/rooms`) on the right, with Rename and Delete for the

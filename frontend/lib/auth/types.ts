@@ -1,5 +1,5 @@
 // location: frontend/lib/auth/types.ts
-/** Shared types for the FallDetect sign-in screen. */
+/** Shared types for the WatchCare sign-in screen. */
 
 export type AuthMode = "login" | "done";
 

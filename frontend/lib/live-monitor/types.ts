@@ -1,5 +1,5 @@
 // location: frontend/lib/live-monitor/types.ts
-/** Shared types for the FallDetect Live Monitor screen. */
+/** Shared types for the WatchCare Live Monitor screen. */
 
 /** A floor as returned by GET /api/floors/assigned and embedded in each Room. */
 export interface Floor {

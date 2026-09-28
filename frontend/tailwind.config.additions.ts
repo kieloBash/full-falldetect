@@ -1,7 +1,7 @@
 /**
  * Merge these into your existing tailwind.config.{ts,js} `theme.extend`.
  * They back the keyframe animations referenced by className across the
- * FallDetect components (search "animate-fd-" to find every usage):
+ * WatchCare components (search "animate-fd-" to find every usage):
  *
  *   animate-fd-pulse     Live Monitor AlertTile — active-fall border pulse
  *   animate-fd-dot       Live Monitor CameraFeed — blinking REC dot
@@ -11,7 +11,7 @@
  *   animate-fd-modal-in  Admin ModalShell — add/edit modal entrance
  *
  * Everything else on these screens is plain Tailwind utility classes (the
- * FallDetect brief's slate/teal/red/amber/green palette maps 1:1 onto
+ * WatchCare brief's slate/teal/red/amber/green palette maps 1:1 onto
  * Tailwind's default color scale, so no custom colors are needed).
  *
  * Example tailwind.config.ts:

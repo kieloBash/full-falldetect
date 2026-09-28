@@ -1,8 +1,8 @@
-// FallDetect — database schema
+// WatchCare — database schema
 //
 // Backs both implemented screens (Auth, Live Monitor) plus the Incidents
 // domain that Live Monitor's alerts actually belong to (see
-// `project/FallDetect Incidents - Handoff.dc.html`'s schema/API sections —
+// `project/WatchCare Incidents - Handoff.dc.html`'s schema/API sections —
 // this is that spec turned into real tables). Analytics needs no tables of
 // its own; it's aggregate queries over Incident. Settings' sensor
 // management / notification-escalation rules aren't modeled — that screen

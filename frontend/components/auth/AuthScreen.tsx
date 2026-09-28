@@ -9,7 +9,7 @@ import { LoginForm } from "@/components/auth/LoginForm";
 export type AuthScreenProps = UseAuthFormOptions;
 
 /**
- * FallDetect — Sign in, split-panel layout: a dark brand panel on the left,
+ * WatchCare — Sign in, split-panel layout: a dark brand panel on the left,
  * the form on the right. Self-registration was removed: an administrator
  * creates every staff account in Admin → User Management.
  */

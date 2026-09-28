@@ -72,7 +72,7 @@ silent while a nurse watched Floor 2. Now:
 | Admin sidebar | Settings "SOON", hidden Incidents item | Removed |
 | Login page | Commented SSO button; "HIPAA-compliant, encrypted end-to-end", "Sub-second alerts" | Removed; accurate feature lines |
 | Profile menu | Commented Profile/Settings | Shows name + email, Log out |
-| Browser tab | "Create Next App" | "FallDetect" |
+| Browser tab | "Create Next App" | "WatchCare" |
 | `public/` | Next.js sample images | Removed; `public/sounds/` added |
 | `useLiveMonitor` | Demo options `startWithActiveFall`, `muteSound` | Removed |
 | API calls | Live Monitor + floors used `fetch` | axios `apiClient`, like Admin/Auth |

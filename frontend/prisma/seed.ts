@@ -1,6 +1,6 @@
 // location: frontend/prisma/seed.ts
 //
-// Clean seed for FallDetect. Run with:  npx prisma db seed
+// Clean seed for WatchCare. Run with:  npx prisma db seed
 //
 // WIPES EVERY TABLE, then creates only:
 //   - the facility "Fall Detect Clinic"

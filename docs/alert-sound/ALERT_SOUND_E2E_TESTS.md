@@ -70,7 +70,7 @@ Reset `NEXT_PUBLIC_ALERT_SOUND_URL` after SND-14/15.
 | CL-11 | Admin sidebar | No "Settings SOON" | |
 | CL-12 | Login page | No SSO button; brand panel doesn't mention HIPAA or "sub-second" | |
 | CL-13 | Profile menu | Shows name and email, then Log out | |
-| CL-14 | Browser tab title | "Live Monitor · FallDetect" / "Sign in · FallDetect" (never "Create Next App") | |
+| CL-14 | Browser tab title | "Live Monitor · WatchCare" / "Sign in · WatchCare" (never "Create Next App") | |
 | CL-15 | Nurse `/api/me` | Console: `fetch('/api/me').then(r=>r.json())` → includes `"role":"NURSE"` | |
 
 ## Results log

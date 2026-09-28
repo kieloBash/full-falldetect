@@ -1,4 +1,4 @@
-# FallDetect — Frontend
+# WatchCare — Frontend
 
 Next.js app (Live Monitor screen, auth, incident lifecycle) backed by
 PostgreSQL via Prisma. Receives fall events from the ingest server and

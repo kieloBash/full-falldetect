@@ -11,7 +11,7 @@ import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { RoomManagementTable } from "./RoomManagementTable";
 
 /**
- * FallDetect — Admin · Room Management (`/admin/rooms`).
+ * WatchCare — Admin · Room Management (`/admin/rooms`).
  *
  * Every room across every floor, with its floor and currently assigned
  * patient, plus add/edit/remove. Backed by TanStack Query + the

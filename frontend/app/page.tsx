@@ -1,7 +1,7 @@
 import { LoginPageClient } from "@/components/auth/LoginPageClient";
 
 export const metadata = {
-  title: "Sign in · FallDetect",
+  title: "Sign in · WatchCare",
 };
 
 export default function HomePage() {

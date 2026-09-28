@@ -3,7 +3,7 @@
 import { UserManagementScreen } from "@/components/users/UserManagementScreen";
 
 export const metadata = {
-  title: "User Management · FallDetect Admin",
+  title: "User Management · WatchCare Admin",
 };
 
 export default function AdminUsersPage() {

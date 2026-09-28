@@ -40,7 +40,7 @@ def main() -> None:
     args = parser.parse_args()
 
     lan_ip = detect_lan_ip()
-    print("FallDetect camera laptop check\n")
+    print("WatchCare camera laptop check\n")
     print(f"  Laptop 1 (web app): {config.FRONTEND_BASE_URL}")
     print(f"  This laptop's IP:   {lan_ip}")
     print(f"  Video address:      {current_stream_base_url()}")

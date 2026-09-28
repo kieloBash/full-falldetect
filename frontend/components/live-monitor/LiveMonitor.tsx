@@ -19,7 +19,7 @@ import { TopBar } from "./TopBar";
 export type LiveMonitorProps = UseLiveMonitorOptions;
 
 /**
- * FallDetect — Live Monitor.
+ * WatchCare — Live Monitor.
  *
  * The on-shift nurse's screen: every room on the selected floor as a live-status
  * tile (or live camera feeds for pinned rooms), the inspector for the selected room,

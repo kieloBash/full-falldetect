@@ -74,7 +74,7 @@ already put different patients there.
 3. `python check_node.py` prints the camera table:
 
    ```text
-     Camera setup:       C:\FallDetect\config\cameras.json
+     Camera setup:       C:\WatchCare\config\cameras.json
      Camera  Sensor ID    Floor  Room   Patient
      0       CAM-201      2      201    Eleanor Whitfield
      1       CAM-202      2      202    Harold Baptiste

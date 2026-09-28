@@ -1,5 +1,5 @@
 <!-- location: QUICKSTART.md (project root) -->
-# FallDetect — Quick Start
+# WatchCare — Quick Start
 
 For when `frontend/.env` (laptop 1) and `backend/.env` (laptop 2) are **already filled in**.
 First-time Supabase and `.env` setup: see the full *Installation and Setup Guide*.
@@ -31,7 +31,7 @@ npm run build
 Firewall (Windows, PowerShell **as Administrator**):
 
 ```powershell
-New-NetFirewallRule -DisplayName "FallDetect web app" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "WatchCare web app" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
 ```
 
 Mac: click **Allow** when asked if `node` can accept incoming connections.
@@ -63,7 +63,7 @@ pip install -r requirements-node.txt
 Firewall (Windows, PowerShell **as Administrator**):
 
 ```powershell
-New-NetFirewallRule -DisplayName "FallDetect video" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private
+New-NetFirewallRule -DisplayName "WatchCare video" -Direction Inbound -Protocol TCP -LocalPort 8002 -Action Allow -Profile Private
 ```
 
 Mac: click **Allow** for incoming connections and for the camera the first time `main.py` runs.

@@ -1,10 +1,10 @@
 // location: frontend/lib/auth/constants.ts
 export const COPY = {
-  brandName: "FallDetect",
+  brandName: "WatchCare",
   headline: "Real-time fall detection for every resident, on every floor.",
   subheadline: "Sign in to monitor live alerts, respond to incidents, and keep your care team coordinated.",
   features: ["Alerts about 5 seconds after a resident leaves the bed", "Live camera view for every monitored room"],
-  copyright: `© ${new Date().getFullYear()} FallDetect. All rights reserved.`,
+  copyright: `© ${new Date().getFullYear()} WatchCare. All rights reserved.`,
 
   loginTitle: "Welcome back",
   loginSubtitle: "Sign in with your facility credentials to continue.",

@@ -1,7 +1,7 @@
 <!-- location: docs/admin/README.md -->
 # Module: Administration (Floors, Rooms, Patients, Users) + fixes
 
-This module finishes the administrator side of FallDetect:
+This module finishes the administrator side of WatchCare:
 
 - **User Management** (new): administrators create every staff account. Self-registration is removed.
 - **Floor Management**: rename and delete were added.

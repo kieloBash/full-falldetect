@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FallDetect",
+  title: "WatchCare",
   description: "AI-assisted fall detection and alerting for senior-care facilities.",
 };
 

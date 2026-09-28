@@ -46,3 +46,5 @@ backend/.env
 frontend/public/screenshots/*
 modules/
 secrets/
+
+backend/model/*

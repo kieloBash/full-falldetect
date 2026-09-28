@@ -10,7 +10,7 @@ import { FloorManagementToolbar } from "./FloorManagementToolbar";
 import { RoomTable } from "./RoomTable";
 
 /**
- * FallDetect — Admin · Floor Management.
+ * WatchCare — Admin · Floor Management.
  *
  * Lets an admin manage the org structure Live Monitor visualizes: floors,
  * rooms, and their sensor assignments. A CRUD table + two modals, backed by

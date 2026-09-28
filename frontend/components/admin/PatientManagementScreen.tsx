@@ -11,7 +11,7 @@ import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { PatientTable } from "./PatientTable";
 
 /**
- * FallDetect — Admin · Patient Management (`/admin/patients`).
+ * WatchCare — Admin · Patient Management (`/admin/patients`).
  *
  * Every patient, their current room assignment, care notes, and
  * active/discharged status, plus add/edit/remove. Backed by TanStack
