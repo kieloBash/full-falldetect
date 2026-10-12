@@ -1,0 +1,20 @@
+# Location: full-falldetect/backend/requirements-launcher.txt
+# Cross-platform dependencies for the detection service (Windows + macOS).
+# Used by setup instead of requirements.txt, which is a Windows pip freeze.
+# List only packages the backend imports directly; pip installs their
+# dependencies (numpy, pillow, matplotlib, etc.) for the current OS.
+
+# Model and vision
+ultralytics==8.4.105
+torch==2.13.0
+torchvision==0.28.0
+opencv-python==5.0.0.93
+numpy==2.4.6
+
+# Stream server and auth (stream_server.py, stream_auth.py)
+flask>=3.0
+PyJWT>=2.8
+
+# Alerts, heartbeat and config (node_client.py, config.py)
+requests==2.34.2
+python-dotenv==1.2.2

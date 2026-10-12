@@ -48,3 +48,6 @@ modules/
 secrets/
 
 backend/model/*
+
+.falldetect.pids
+logs/

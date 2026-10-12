@@ -29,6 +29,8 @@ from node_client import Heartbeat, current_stream_base_url, get_alert_sender, se
 from stream_server import frame_store, start_stream_server
 from stream_utils import encode_stream_jpeg
 
+from launcher_args import parse_launcher_args
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
 
 # ── Config (from backend/.env via config.py) ───────────────────────────────────
@@ -441,12 +443,20 @@ def wait_for_first_frames(camera_ids, timeout=FIRST_FRAME_WAIT_SEC):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 def main():
+    
+    launch_args = parse_launcher_args()
+
     available = detect_cameras()
     if not available:
         print("[!] No cameras found. Check CAMERA_ID_MAP in backend/.env and camera permissions.")
         return
 
-    selected = prompt_camera_selection(available)
+    if launch_args.all:
+        selected = available
+        print(f"[*] --all set, monitoring: {[c['camera_id'] for c in selected]}")
+    else:
+        selected = prompt_camera_selection(available)
+        
     if not selected:
         print("[!] No cameras selected. Exiting.")
         return
